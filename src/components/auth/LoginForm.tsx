@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { users } from "@/lib/data";
+import { authenticate } from "@/lib/dataService";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -26,11 +26,11 @@ export function LoginForm() {
       return;
     }
 
-    // Mock authentication (in a real app, this would call an API)
+    // Use our authentication service
     setTimeout(() => {
-      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const user = authenticate(email, password);
       
-      if (user && password === "password") { // For demo purposes
+      if (user) {
         toast.success(`Welcome back, ${user.name}!`);
         navigate("/dashboard");
       } else {

@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitials } from "@/lib/utils";
@@ -14,11 +14,13 @@ import {
   Settings, 
   Users 
 } from "lucide-react";
-import { currentUser } from "@/lib/data";
+import { logout, getCurrentUser } from "@/lib/dataService";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const currentUser = getCurrentUser();
   
   const navItems = [
     { label: 'Dashboard', icon: Home, href: '/dashboard' },
@@ -27,6 +29,11 @@ export function Sidebar() {
     { label: 'Reports', icon: BarChart3, href: '/reports' },
     { label: 'Settings', icon: Settings, href: '/settings' },
   ];
+  
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <div 
@@ -96,7 +103,7 @@ export function Sidebar() {
           <Button 
             variant="ghost" 
             className={`w-full flex items-center gap-3 ${collapsed ? "justify-center px-0" : ""}`}
-            onClick={() => {/* Handle logout */}}
+            onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
             {!collapsed && <span>Log out</span>}

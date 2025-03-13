@@ -1,17 +1,27 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { TeamMemberForm } from "@/components/team/TeamMemberForm";
 import { getInitials } from "@/lib/utils";
 import { Plus, UserPlus } from "lucide-react";
 import { UserRole } from "@/lib/types";
-import { currentUser, getTeamMembers, users } from "@/lib/data";
+import { getCurrentUser, getTeamMembers } from "@/lib/dataService";
 
 export default function Team() {
+  const [isTeamMemberFormOpen, setIsTeamMemberFormOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  
   // Get team members based on the user's role
+  const currentUser = getCurrentUser();
   const teamMembers = getTeamMembers(currentUser.id);
   
+  const handleTeamMemberSuccess = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -21,7 +31,7 @@ export default function Team() {
             Manage your team members and roles
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setIsTeamMemberFormOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Add Team Member
         </Button>
@@ -53,7 +63,7 @@ export default function Team() {
 
         {/* Team Members */}
         {teamMembers.map((member, index) => (
-          <Card key={member.id} className={`animate-slide-up animation-delay-${(index + 1) * 100}`}>
+          <Card key={`${member.id}-${refreshKey}`} className={`animate-slide-up animation-delay-${(index + 1) * 100}`}>
             <CardHeader className="pb-2">
               <div className="flex justify-between">
                 <div>
@@ -87,7 +97,10 @@ export default function Team() {
         ))}
 
         {/* Add New Member Card */}
-        <Card className="flex flex-col items-center justify-center border-dashed h-full min-h-[180px] animate-slide-up animation-delay-500">
+        <Card 
+          className="flex flex-col items-center justify-center border-dashed h-full min-h-[180px] animate-slide-up animation-delay-500 cursor-pointer hover:bg-accent/5"
+          onClick={() => setIsTeamMemberFormOpen(true)}
+        >
           <div className="flex flex-col items-center text-center p-6">
             <div className="rounded-full bg-muted flex items-center justify-center h-12 w-12 mb-4">
               <Plus className="h-6 w-6 text-muted-foreground" />
@@ -103,6 +116,13 @@ export default function Team() {
           </div>
         </Card>
       </div>
+
+      {/* Team Member Form Dialog */}
+      <TeamMemberForm
+        open={isTeamMemberFormOpen}
+        onOpenChange={setIsTeamMemberFormOpen}
+        onSuccess={handleTeamMemberSuccess}
+      />
     </div>
   );
 }
