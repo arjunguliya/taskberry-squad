@@ -21,6 +21,7 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
   const [role, setRole] = useState<UserRole>(UserRole.MEMBER);
   const [supervisorId, setSupervisorId] = useState<string>("");
   const [managerId, setManagerId] = useState<string>("");
+  const [reportingTo, setReportingTo] = useState<"manager" | "supervisor">("supervisor");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const currentUser = getCurrentUser();
@@ -33,6 +34,7 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
       // Reset form when opened
       setName("");
       setEmail("");
+      setReportingTo("supervisor");
       
       // Default role based on current user's role
       if (currentUser.role === UserRole.MANAGER) {
@@ -62,9 +64,15 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
       return;
     }
     
-    if (role === UserRole.MEMBER && !supervisorId) {
-      toast.error("Team member must be assigned to a supervisor");
-      return;
+    if (role === UserRole.MEMBER) {
+      if (reportingTo === "supervisor" && !supervisorId) {
+        toast.error("Team member must be assigned to a supervisor");
+        return;
+      }
+      if (reportingTo === "manager" && !managerId) {
+        toast.error("Team member must be assigned to a manager");
+        return;
+      }
     }
     
     setIsSubmitting(true);
@@ -74,8 +82,8 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
         name,
         email,
         role,
-        supervisorId: role === UserRole.MEMBER ? supervisorId : undefined,
-        managerId: role === UserRole.SUPERVISOR ? managerId : undefined,
+        supervisorId: role === UserRole.MEMBER && reportingTo === "supervisor" ? supervisorId : undefined,
+        managerId: role === UserRole.SUPERVISOR || (role === UserRole.MEMBER && reportingTo === "manager") ? managerId : undefined,
       });
       
       if (onSuccess) onSuccess();
@@ -95,7 +103,7 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
           <DialogTitle>Add Team Member</DialogTitle>
           <DialogDescription>
             Add a new member to your team. {currentUser.role === UserRole.MANAGER 
-              ? "As a manager, you can add supervisors." 
+              ? "As a manager, you can add supervisors or team members." 
               : "As a supervisor, you can add team members."}
           </DialogDescription>
         </DialogHeader>
@@ -135,23 +143,36 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
                 {currentUser.role === UserRole.MANAGER && (
                   <SelectItem value={UserRole.SUPERVISOR}>Supervisor</SelectItem>
                 )}
-                {currentUser.role === UserRole.SUPERVISOR && (
-                  <SelectItem value={UserRole.MEMBER}>Team Member</SelectItem>
-                )}
-                {currentUser.role === UserRole.MANAGER && (
-                  <SelectItem value={UserRole.MEMBER}>Team Member</SelectItem>
-                )}
+                <SelectItem value={UserRole.MEMBER}>Team Member</SelectItem>
               </SelectContent>
             </Select>
           </div>
           
-          {role === UserRole.MEMBER && (
+          {role === UserRole.MEMBER && currentUser.role === UserRole.MANAGER && (
+            <div className="space-y-2">
+              <Label htmlFor="reportingTo">Reports To</Label>
+              <Select 
+                value={reportingTo} 
+                onValueChange={(value) => setReportingTo(value as "manager" | "supervisor")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select reporting manager/supervisor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manager">Manager (Direct Report)</SelectItem>
+                  <SelectItem value="supervisor">Supervisor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          {role === UserRole.MEMBER && (reportingTo === "supervisor" || currentUser.role === UserRole.SUPERVISOR) && (
             <div className="space-y-2">
               <Label htmlFor="supervisor">Assign to Supervisor*</Label>
               <Select 
                 value={supervisorId} 
                 onValueChange={setSupervisorId}
-                required
+                required={reportingTo === "supervisor"}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select supervisor" />
@@ -167,7 +188,7 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
             </div>
           )}
           
-          {role === UserRole.SUPERVISOR && (
+          {(role === UserRole.SUPERVISOR || (role === UserRole.MEMBER && reportingTo === "manager")) && (
             <div className="space-y-2">
               <Label htmlFor="manager">Assign to Manager*</Label>
               <Select 

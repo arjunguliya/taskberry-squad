@@ -2,24 +2,20 @@ import { Task, TaskStatus, User, Report, UserRole } from '@/lib/types';
 import { users, tasks, reports, currentUser as initialCurrentUser } from '@/lib/data';
 import { toast } from 'sonner';
 
-// Load data from localStorage or use initial data
 const loadData = <T>(key: string, initialData: T): T => {
   const stored = localStorage.getItem(key);
   return stored ? JSON.parse(stored) : initialData;
 };
 
-// Save data to localStorage
 const saveData = <T>(key: string, data: T): void => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
-// Initialize data
 let storedUsers = loadData<User[]>('users', users);
 let storedTasks = loadData<Task[]>('tasks', tasks);
 let storedReports = loadData<Report[]>('reports', reports);
 let storedCurrentUser = loadData<User>('currentUser', initialCurrentUser);
 
-// Data service functions
 export const getCurrentUser = (): User => storedCurrentUser;
 
 export const setCurrentUser = (user: User): void => {
@@ -40,15 +36,14 @@ export const getTeamMembers = (userId: string): User[] => {
   if (!user) return [];
   
   if (user.role === UserRole.MANAGER) {
-    // For managers, get all supervisors who report to them and their team members
     const supervisors = storedUsers.filter(u => u.managerId === userId && u.role === UserRole.SUPERVISOR);
-    const teamMembers = storedUsers.filter(u => 
+    const directTeamMembers = storedUsers.filter(u => u.managerId === userId && u.role === UserRole.MEMBER);
+    const indirectTeamMembers = storedUsers.filter(u => 
       u.role === UserRole.MEMBER && 
       supervisors.some(s => s.id === u.supervisorId)
     );
-    return [...supervisors, ...teamMembers];
+    return [...supervisors, ...directTeamMembers, ...indirectTeamMembers];
   } else if (user.role === UserRole.SUPERVISOR) {
-    // For supervisors, get all team members who report to them
     return storedUsers.filter(u => u.supervisorId === userId);
   }
   
@@ -60,10 +55,8 @@ export const getDirectReports = (userId: string): User[] => {
   if (!user) return [];
   
   if (user.role === UserRole.MANAGER) {
-    // Managers directly manage supervisors
     return storedUsers.filter(u => u.managerId === userId);
   } else if (user.role === UserRole.SUPERVISOR) {
-    // Supervisors directly manage team members
     return storedUsers.filter(u => u.supervisorId === userId);
   }
   
@@ -75,11 +68,9 @@ export const getTasksForTeam = (userId: string): Task[] => {
   if (!user) return [];
   
   if (user.role === UserRole.MANAGER) {
-    // For managers, get tasks for all team members in their hierarchy
     const teamMemberIds = getTeamMembers(userId).map(member => member.id);
     return storedTasks.filter(task => teamMemberIds.includes(task.assigneeId));
   } else if (user.role === UserRole.SUPERVISOR) {
-    // For supervisors, get tasks for their direct reports
     const teamMemberIds = getDirectReports(userId).map(member => member.id);
     return storedTasks.filter(task => teamMemberIds.includes(task.assigneeId) || task.assigneeId === userId);
   }
@@ -95,19 +86,23 @@ export const getAssignableUsers = (assignerId: string): User[] => {
   if (!assigner) return [];
   
   if (assigner.role === UserRole.MANAGER) {
-    // Managers can only assign to supervisors
-    return storedUsers.filter(u => 
+    const supervisors = storedUsers.filter(u => 
       u.role === UserRole.SUPERVISOR && 
       u.managerId === assignerId
     );
+    
+    const directReportingMembers = storedUsers.filter(u => 
+      u.role === UserRole.MEMBER && 
+      u.managerId === assignerId
+    );
+    
+    return [...supervisors, ...directReportingMembers];
   } else if (assigner.role === UserRole.SUPERVISOR) {
-    // Supervisors can assign to team members or other supervisors
     const directReports = storedUsers.filter(u => 
       u.role === UserRole.MEMBER && 
       u.supervisorId === assignerId
     );
     
-    // Also get other supervisors under the same manager
     const manager = assigner.managerId;
     const otherSupervisors = manager 
       ? storedUsers.filter(u => 
@@ -184,15 +179,12 @@ export const generateReport = (title: string, type: 'daily' | 'weekly' | 'monthl
       const now = new Date();
       
       if (type === 'daily') {
-        // Tasks updated today
         return taskDate.toDateString() === now.toDateString();
       } else if (type === 'weekly') {
-        // Tasks updated this week
         const weekStart = new Date(now);
         weekStart.setDate(now.getDate() - now.getDay());
         return taskDate >= weekStart;
       } else {
-        // Tasks updated this month
         return taskDate.getMonth() === now.getMonth() && 
                taskDate.getFullYear() === now.getFullYear();
       }
@@ -216,7 +208,6 @@ export const generateReport = (title: string, type: 'daily' | 'weekly' | 'monthl
 export const getReports = (): Report[] => storedReports;
 
 export const authenticate = (email: string, password: string): User | null => {
-  // For demo purposes, any user can log in with password "password"
   const user = storedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
   if (user && password === "password") {
     setCurrentUser(user);
@@ -226,12 +217,9 @@ export const authenticate = (email: string, password: string): User | null => {
 };
 
 export const logout = (): void => {
-  // We don't actually remove the current user from localStorage
-  // to make demo easier, but in a real app we would
   toast.info('Logged out successfully');
 };
 
-// For demo purposes: check if it's the first load and save initial data
 if (!localStorage.getItem('initialized')) {
   saveData('users', users);
   saveData('tasks', tasks);
