@@ -7,13 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvatarGroup } from "@/components/ui/avatar-group";
 import { TaskCard } from "@/components/dashboard/TaskCard";
 import { TaskForm } from "@/components/dashboard/TaskForm";
-import { TaskStatus } from "@/lib/types";
+import { Task, TaskStatus } from "@/lib/types";
 import { calculateStatusCounts, getInitials } from "@/lib/utils";
 import { BarChart, CalendarClock, CheckCircle, Clock, ListTodo, Plus, Users } from "lucide-react";
 import { getCurrentUser, getTasksForTeam, getTeamMembers } from "@/lib/dataService";
 
 export default function Dashboard() {
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
   
   // Get data based on user role
@@ -29,6 +30,17 @@ export default function Dashboard() {
 
   const handleTaskSuccess = () => {
     setRefreshKey(prev => prev + 1);
+    setSelectedTask(undefined);
+  };
+  
+  const handleNewTask = () => {
+    setSelectedTask(undefined);
+    setIsTaskFormOpen(true);
+  };
+  
+  const handleEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setIsTaskFormOpen(true);
   };
 
   return (
@@ -41,7 +53,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => setIsTaskFormOpen(true)}>
+          <Button size="sm" onClick={handleNewTask}>
             <Plus className="h-4 w-4 mr-1" />
             New Task
           </Button>
@@ -130,14 +142,14 @@ export default function Dashboard() {
               <TaskCard 
                 key={`${task.id}-${refreshKey}`} 
                 task={task} 
-                onEdit={() => setIsTaskFormOpen(true)} 
+                onEdit={handleEditTask} 
                 refetch={handleTaskSuccess}
               />
             ))}
             {recentTasks.length === 0 && (
               <div className="col-span-full py-10 text-center">
                 <p className="text-muted-foreground">No recent tasks found. Create a new task to get started.</p>
-                <Button className="mt-4" onClick={() => setIsTaskFormOpen(true)}>
+                <Button className="mt-4" onClick={handleNewTask}>
                   <Plus className="h-4 w-4 mr-1" />
                   Create Task
                 </Button>
@@ -151,14 +163,14 @@ export default function Dashboard() {
               <TaskCard 
                 key={`${task.id}-${refreshKey}`} 
                 task={task} 
-                onEdit={() => setIsTaskFormOpen(true)} 
+                onEdit={handleEditTask} 
                 refetch={handleTaskSuccess}
               />
             ))}
             {teamTasks.length === 0 && (
               <div className="col-span-full py-10 text-center">
                 <p className="text-muted-foreground">No team tasks found. Create a new task to get started.</p>
-                <Button className="mt-4" onClick={() => setIsTaskFormOpen(true)}>
+                <Button className="mt-4" onClick={handleNewTask}>
                   <Plus className="h-4 w-4 mr-1" />
                   Create Task
                 </Button>
@@ -172,6 +184,7 @@ export default function Dashboard() {
       <TaskForm 
         open={isTaskFormOpen}
         onOpenChange={setIsTaskFormOpen}
+        task={selectedTask}
         onSuccess={handleTaskSuccess}
       />
     </div>
