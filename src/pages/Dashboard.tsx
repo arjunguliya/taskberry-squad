@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvatarGroup } from "@/components/ui/avatar-group";
 import { TaskCard } from "@/components/dashboard/TaskCard";
-import { Status, TaskStatus } from "@/lib/types";
+import { TaskStatus } from "@/lib/types";
 import { calculateStatusCounts, getInitials } from "@/lib/utils";
 import { BarChart, CalendarClock, CheckCircle, Clock, ListTodo, Plus, Users } from "lucide-react";
 import { currentUser, getTasksForTeam, getTeamMembers, tasks } from "@/lib/data";
