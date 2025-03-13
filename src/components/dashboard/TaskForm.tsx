@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
-import { Task, TaskStatus, User } from "@/lib/types";
-import { addTask, updateTask, getTeamMembers, getCurrentUser } from "@/lib/dataService";
+import { Task, TaskStatus, User, UserRole } from "@/lib/types";
+import { addTask, updateTask, getCurrentUser, getAssignableUsers } from "@/lib/dataService";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface TaskFormProps {
   open: boolean;
@@ -27,7 +28,7 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
   const [assigneeId, setAssigneeId] = useState("");
   const [targetDate, setTargetDate] = useState<Date>();
   const [status, setStatus] = useState<TaskStatus>(TaskStatus.NOT_STARTED);
-  const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<User[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const currentUser = getCurrentUser();
@@ -51,14 +52,17 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         setStatus(TaskStatus.NOT_STARTED);
       }
       
-      // Load team members
-      setTeamMembers(getTeamMembers(currentUser.id));
+      // Load assignable users based on current user role
+      setAssignableUsers(getAssignableUsers(currentUser.id));
     }
   }, [open, task, currentUser.id]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !assigneeId || !targetDate) return;
+    if (!title || !assigneeId || !targetDate) {
+      toast.error("Please fill out all required fields");
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -87,6 +91,7 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving task:", error);
+      toast.error("Failed to save task");
     } finally {
       setIsSubmitting(false);
     }
@@ -100,7 +105,12 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
           <DialogDescription>
             {isEditing 
               ? "Make changes to the existing task." 
-              : "Add a new task for your team."}
+              : `As a ${currentUser.role}, you can assign tasks to ${
+                  currentUser.role === UserRole.MANAGER 
+                    ? "supervisors" 
+                    : "team members or other supervisors"
+                }.`
+            }
           </DialogDescription>
         </DialogHeader>
         
@@ -133,16 +143,21 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
               required
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select team member" />
+                <SelectValue placeholder="Select assignee" />
               </SelectTrigger>
               <SelectContent>
-                {teamMembers.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {member.name}
+                {assignableUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name} ({user.role})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {assignableUsers.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                No users available for assignment
+              </p>
+            )}
           </div>
           
           <div className="space-y-2">

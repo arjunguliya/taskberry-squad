@@ -1,12 +1,13 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UserRole } from "@/lib/types";
-import { addTeamMember, getCurrentUser } from "@/lib/dataService";
+import { addTeamMember, getCurrentUser, getAllUsers } from "@/lib/dataService";
+import { toast } from "sonner";
 
 interface TeamMemberFormProps {
   open: boolean;
@@ -18,13 +19,53 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<UserRole>(UserRole.MEMBER);
+  const [supervisorId, setSupervisorId] = useState<string>("");
+  const [managerId, setManagerId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const currentUser = getCurrentUser();
+  const allUsers = getAllUsers();
+  const supervisors = allUsers.filter(user => user.role === UserRole.SUPERVISOR);
+  const managers = allUsers.filter(user => user.role === UserRole.MANAGER);
+  
+  useEffect(() => {
+    if (open) {
+      // Reset form when opened
+      setName("");
+      setEmail("");
+      
+      // Default role based on current user's role
+      if (currentUser.role === UserRole.MANAGER) {
+        setRole(UserRole.SUPERVISOR);
+        setManagerId(currentUser.id);
+      } else if (currentUser.role === UserRole.SUPERVISOR) {
+        setRole(UserRole.MEMBER);
+        setSupervisorId(currentUser.id);
+        // Find the manager for this supervisor
+        const supervisor = allUsers.find(u => u.id === currentUser.id);
+        if (supervisor?.managerId) {
+          setManagerId(supervisor.managerId);
+        }
+      }
+    }
+  }, [open, currentUser, allUsers]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email) return;
+    if (!name || !email) {
+      toast.error("Name and email are required");
+      return;
+    }
+    
+    if (role === UserRole.SUPERVISOR && !managerId) {
+      toast.error("Supervisor must be assigned to a manager");
+      return;
+    }
+    
+    if (role === UserRole.MEMBER && !supervisorId) {
+      toast.error("Team member must be assigned to a supervisor");
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -33,13 +74,15 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
         name,
         email,
         role,
-        supervisorId: currentUser.id,
+        supervisorId: role === UserRole.MEMBER ? supervisorId : undefined,
+        managerId: role === UserRole.SUPERVISOR ? managerId : undefined,
       });
       
       if (onSuccess) onSuccess();
       onOpenChange(false);
     } catch (error) {
       console.error("Error adding team member:", error);
+      toast.error("Failed to add team member");
     } finally {
       setIsSubmitting(false);
     }
@@ -51,7 +94,9 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
         <DialogHeader>
           <DialogTitle>Add Team Member</DialogTitle>
           <DialogDescription>
-            Add a new member to your team.
+            Add a new member to your team. {currentUser.role === UserRole.MANAGER 
+              ? "As a manager, you can add supervisors." 
+              : "As a supervisor, you can add team members."}
           </DialogDescription>
         </DialogHeader>
         
@@ -87,11 +132,62 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={UserRole.MEMBER}>Team Member</SelectItem>
-                <SelectItem value={UserRole.SUPERVISOR}>Supervisor</SelectItem>
+                {currentUser.role === UserRole.MANAGER && (
+                  <SelectItem value={UserRole.SUPERVISOR}>Supervisor</SelectItem>
+                )}
+                {currentUser.role === UserRole.SUPERVISOR && (
+                  <SelectItem value={UserRole.MEMBER}>Team Member</SelectItem>
+                )}
+                {currentUser.role === UserRole.MANAGER && (
+                  <SelectItem value={UserRole.MEMBER}>Team Member</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
+          
+          {role === UserRole.MEMBER && (
+            <div className="space-y-2">
+              <Label htmlFor="supervisor">Assign to Supervisor*</Label>
+              <Select 
+                value={supervisorId} 
+                onValueChange={setSupervisorId}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select supervisor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {supervisors.map((supervisor) => (
+                    <SelectItem key={supervisor.id} value={supervisor.id}>
+                      {supervisor.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          {role === UserRole.SUPERVISOR && (
+            <div className="space-y-2">
+              <Label htmlFor="manager">Assign to Manager*</Label>
+              <Select 
+                value={managerId} 
+                onValueChange={setManagerId}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  {managers.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           <DialogFooter>
             <Button

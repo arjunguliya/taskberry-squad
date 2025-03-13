@@ -1,5 +1,4 @@
-
-import { Task, TaskStatus, User, Report } from '@/lib/types';
+import { Task, TaskStatus, User, Report, UserRole } from '@/lib/types';
 import { users, tasks, reports, currentUser as initialCurrentUser } from '@/lib/data';
 import { toast } from 'sonner';
 
@@ -36,16 +35,93 @@ export const getUserById = (id: string): User | undefined =>
 export const getTaskById = (id: string): Task | undefined => 
   storedTasks.find(task => task.id === id);
 
-export const getTeamMembers = (supervisorId: string): User[] => 
-  storedUsers.filter(user => user.supervisorId === supervisorId);
+export const getTeamMembers = (userId: string): User[] => {
+  const user = getUserById(userId);
+  if (!user) return [];
+  
+  if (user.role === UserRole.MANAGER) {
+    // For managers, get all supervisors who report to them and their team members
+    const supervisors = storedUsers.filter(u => u.managerId === userId && u.role === UserRole.SUPERVISOR);
+    const teamMembers = storedUsers.filter(u => 
+      u.role === UserRole.MEMBER && 
+      supervisors.some(s => s.id === u.supervisorId)
+    );
+    return [...supervisors, ...teamMembers];
+  } else if (user.role === UserRole.SUPERVISOR) {
+    // For supervisors, get all team members who report to them
+    return storedUsers.filter(u => u.supervisorId === userId);
+  }
+  
+  return [];
+};
 
-export const getTasksForTeam = (supervisorId: string): Task[] => {
-  const teamMemberIds = getTeamMembers(supervisorId).map(member => member.id);
-  return storedTasks.filter(task => teamMemberIds.includes(task.assigneeId));
+export const getDirectReports = (userId: string): User[] => {
+  const user = getUserById(userId);
+  if (!user) return [];
+  
+  if (user.role === UserRole.MANAGER) {
+    // Managers directly manage supervisors
+    return storedUsers.filter(u => u.managerId === userId);
+  } else if (user.role === UserRole.SUPERVISOR) {
+    // Supervisors directly manage team members
+    return storedUsers.filter(u => u.supervisorId === userId);
+  }
+  
+  return [];
+};
+
+export const getTasksForTeam = (userId: string): Task[] => {
+  const user = getUserById(userId);
+  if (!user) return [];
+  
+  if (user.role === UserRole.MANAGER) {
+    // For managers, get tasks for all team members in their hierarchy
+    const teamMemberIds = getTeamMembers(userId).map(member => member.id);
+    return storedTasks.filter(task => teamMemberIds.includes(task.assigneeId));
+  } else if (user.role === UserRole.SUPERVISOR) {
+    // For supervisors, get tasks for their direct reports
+    const teamMemberIds = getDirectReports(userId).map(member => member.id);
+    return storedTasks.filter(task => teamMemberIds.includes(task.assigneeId) || task.assigneeId === userId);
+  }
+  
+  return [];
 };
 
 export const getTasksForUser = (userId: string): Task[] => 
   storedTasks.filter(task => task.assigneeId === userId);
+
+export const getAssignableUsers = (assignerId: string): User[] => {
+  const assigner = getUserById(assignerId);
+  if (!assigner) return [];
+  
+  if (assigner.role === UserRole.MANAGER) {
+    // Managers can only assign to supervisors
+    return storedUsers.filter(u => 
+      u.role === UserRole.SUPERVISOR && 
+      u.managerId === assignerId
+    );
+  } else if (assigner.role === UserRole.SUPERVISOR) {
+    // Supervisors can assign to team members or other supervisors
+    const directReports = storedUsers.filter(u => 
+      u.role === UserRole.MEMBER && 
+      u.supervisorId === assignerId
+    );
+    
+    // Also get other supervisors under the same manager
+    const manager = assigner.managerId;
+    const otherSupervisors = manager 
+      ? storedUsers.filter(u => 
+          u.role === UserRole.SUPERVISOR && 
+          u.managerId === manager &&
+          u.id !== assignerId
+        )
+      : [];
+    
+    return [...directReports, ...otherSupervisors];
+  }
+  
+  return [];
+};
 
 export const addTask = (task: Omit<Task, 'id' | 'lastUpdated'>): Task => {
   const newTask: Task = {
