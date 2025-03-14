@@ -39,7 +39,10 @@ export function AppLayout() {
               </div>
             </DrawerContent>
           </Drawer>
-          <h1 className="text-lg font-semibold">TaskMaster</h1>
+          <div className="flex items-center">
+            <img src="/logo.png" alt="Chatzy Logo" className="h-8 w-8 mr-2" />
+            <h1 className="text-lg font-semibold">Chatzy TaskMaster</h1>
+          </div>
         </div>
       )}
       <main className={`flex-1 transition-all duration-300 ${isMobile ? 'pl-0 pt-16' : 'pl-16 md:pl-64'}`}>

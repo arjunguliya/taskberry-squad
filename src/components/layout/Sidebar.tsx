@@ -54,9 +54,12 @@ export function Sidebar() {
         <div>
           {/* Header with logo */}
           <div className="flex h-14 items-center px-3 border-b">
-            {(!collapsed || isMobile) && (
-              <h2 className="text-lg font-semibold">TaskMaster</h2>
-            )}
+            <div className="flex items-center">
+              <img src="/logo.png" alt="Chatzy Logo" className="h-8 w-8 mr-2" />
+              {(!collapsed || isMobile) && (
+                <h2 className="text-lg font-semibold">Chatzy TaskMaster</h2>
+              )}
+            </div>
             {!isMobile && (
               <Button 
                 variant="ghost"
