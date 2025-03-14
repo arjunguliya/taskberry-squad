@@ -1,12 +1,47 @@
 
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { 
+  Drawer,
+  DrawerContent,
+  DrawerTrigger
+} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
 
 export function AppLayout() {
+  const isMobile = useIsMobile();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile drawer when route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 pl-16 md:pl-64 transition-all duration-300">
+      {!isMobile ? (
+        <Sidebar />
+      ) : (
+        <div className="fixed top-0 left-0 z-30 w-full bg-background/80 backdrop-blur-sm border-b p-3 flex items-center">
+          <Drawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <DrawerTrigger asChild>
+              <Button variant="outline" size="icon" className="mr-2">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent className="h-[80vh]">
+              <div className="px-4 py-2">
+                <Sidebar />
+              </div>
+            </DrawerContent>
+          </Drawer>
+          <h1 className="text-lg font-semibold">TaskMaster</h1>
+        </div>
+      )}
+      <main className={`flex-1 transition-all duration-300 ${isMobile ? 'pl-0 pt-16' : 'pl-16 md:pl-64'}`}>
         <div className="container mx-auto px-4 py-6 max-w-7xl">
           <Outlet />
         </div>

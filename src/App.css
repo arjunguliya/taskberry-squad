@@ -1,8 +1,16 @@
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0;
   text-align: center;
+}
+
+/* Adjust container padding on mobile */
+@media (max-width: 768px) {
+  #root {
+    padding: 0;
+  }
 }
 
 .logo {
@@ -37,6 +45,28 @@
   padding: 2em;
 }
 
+/* Adjust card padding on mobile */
+@media (max-width: 768px) {
+  .card {
+    padding: 1em;
+  }
+}
+
 .read-the-docs {
   color: #888;
+}
+
+/* Add responsive utilities */
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: block;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
 }
