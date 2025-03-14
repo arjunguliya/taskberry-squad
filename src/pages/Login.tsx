@@ -8,7 +8,7 @@ export default function Login() {
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
             <img 
-              src="/lovable-uploads/cfe1ecb1-7b60-4bb3-9d51-e7a3719aa0a7.png" 
+              src="/lovable-uploads/Chatzy.png" 
               alt="Chatzy Logo" 
               className="h-16 w-16" 
             />
