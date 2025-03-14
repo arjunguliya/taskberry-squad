@@ -40,7 +40,12 @@ export function AppLayout() {
             </DrawerContent>
           </Drawer>
           <div className="flex items-center">
-            <img src="/lovable-uploads/cfe1ecb1-7b60-4bb3-9d51-e7a3719aa0a7.png" alt="Chatzy Logo" className="h-8 w-8 mr-2" />
+            <img 
+              src="/lovable-uploads/cfe1ecb1-7b60-4bb3-9d51-e7a3719aa0a7.png" 
+              alt="Chatzy Logo" 
+              className="h-8 w-8 mr-2"
+              onError={(e) => console.error("Logo failed to load", e)}
+            />
             <h1 className="text-lg font-semibold">Chatzy TaskMaster</h1>
           </div>
         </div>
