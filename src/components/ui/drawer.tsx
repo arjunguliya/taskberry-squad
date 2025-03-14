@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
@@ -34,8 +35,11 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    title?: string;
+    description?: string;
+  }
+>(({ className, children, title = "Menu", description = "Application menu options", ...props }, ref) => (
   <DrawerPortal>
     <DrawerOverlay />
     <DrawerPrimitive.Content
@@ -47,6 +51,12 @@ const DrawerContent = React.forwardRef<
       {...props}
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+      <DrawerPrimitive.Title className="sr-only">
+        {title}
+      </DrawerPrimitive.Title>
+      <DrawerPrimitive.Description className="sr-only">
+        {description}
+      </DrawerPrimitive.Description>
       {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>

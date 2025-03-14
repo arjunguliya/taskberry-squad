@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -14,6 +14,7 @@ import { Menu } from "lucide-react";
 export function AppLayout() {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
 
   // Close mobile drawer when route changes
   useEffect(() => {

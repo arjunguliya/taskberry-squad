@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { generateReport } from "@/lib/dataService";
 import { format } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ReportFormProps {
   open: boolean;
@@ -18,6 +19,7 @@ export function ReportForm({ open, onOpenChange, onSuccess }: ReportFormProps) {
   const [title, setTitle] = useState("");
   const [type, setType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMobile = useIsMobile();
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +65,7 @@ export function ReportForm({ open, onOpenChange, onSuccess }: ReportFormProps) {
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className={isMobile ? "w-[95%] max-w-[95%] rounded-t-lg p-4" : "sm:max-w-[425px]"}>
         <DialogHeader>
           <DialogTitle>Generate New Report</DialogTitle>
           <DialogDescription>
@@ -82,7 +84,7 @@ export function ReportForm({ open, onOpenChange, onSuccess }: ReportFormProps) {
                 setTimeout(generateTitle, 0);
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select report type" />
               </SelectTrigger>
               <SelectContent>
@@ -114,16 +116,21 @@ export function ReportForm({ open, onOpenChange, onSuccess }: ReportFormProps) {
             />
           </div>
           
-          <DialogFooter>
+          <DialogFooter className={isMobile ? "flex-col gap-2" : ""}>
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
+              className={isMobile ? "w-full" : ""}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+              className={isMobile ? "w-full" : ""}
+            >
               {isSubmitting ? "Generating..." : "Generate Report"}
             </Button>
           </DialogFooter>

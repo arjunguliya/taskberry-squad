@@ -8,12 +8,14 @@ import { ReportForm } from "@/components/reports/ReportForm";
 import { BarChart3, CalendarDays, Download, FileText, Printer } from "lucide-react";
 import { getReports, getTaskById } from "@/lib/dataService";
 import { formatDate } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Reports() {
   const [reportType, setReportType] = useState<string>("daily");
   const [isReportFormOpen, setIsReportFormOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [reports, setReports] = useState([]);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     // Load reports from data service
@@ -62,9 +64,9 @@ export default function Reports() {
             View and generate task reports
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className={`flex ${isMobile ? 'flex-col w-full' : 'flex-row'} gap-2`}>
           <Select defaultValue="daily" onValueChange={setReportType}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className={isMobile ? "w-full" : "w-[180px]"}>
               <SelectValue placeholder="Report Type" />
             </SelectTrigger>
             <SelectContent>
@@ -73,7 +75,10 @@ export default function Reports() {
               <SelectItem value="monthly">Monthly Reports</SelectItem>
             </SelectContent>
           </Select>
-          <Button className="whitespace-nowrap" onClick={() => setIsReportFormOpen(true)}>
+          <Button 
+            className={`whitespace-nowrap ${isMobile ? 'w-full' : ''}`} 
+            onClick={() => setIsReportFormOpen(true)}
+          >
             <FileText className="h-4 w-4 mr-2" />
             Generate New Report
           </Button>
@@ -81,12 +86,12 @@ export default function Reports() {
       </div>
 
       <Tabs defaultValue="list" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="list">
+        <TabsList className={`${isMobile ? 'w-full' : ''}`}>
+          <TabsTrigger value="list" className={isMobile ? 'flex-1' : ''}>
             <FileText className="h-4 w-4 mr-2" />
             Report List
           </TabsTrigger>
-          <TabsTrigger value="chart">
+          <TabsTrigger value="chart" className={isMobile ? 'flex-1' : ''}>
             <BarChart3 className="h-4 w-4 mr-2" />
             Analytics
           </TabsTrigger>
@@ -97,7 +102,7 @@ export default function Reports() {
               filteredReports.map(report => (
                 <Card key={`${report.id}-${refreshKey}`} className="animate-slide-up">
                   <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
+                    <div className={`flex ${isMobile ? 'flex-col gap-2' : 'items-start justify-between'}`}>
                       <div>
                         <CardTitle>{report.title}</CardTitle>
                         <CardDescription className="flex items-center mt-1">
@@ -105,7 +110,7 @@ export default function Reports() {
                           Generated on {formatDate(report.generatedAt)}
                         </CardDescription>
                       </div>
-                      <div className="flex">
+                      <div className={`flex ${isMobile ? 'justify-end' : ''}`}>
                         <Button 
                           variant="outline" 
                           size="icon" 
@@ -134,7 +139,7 @@ export default function Reports() {
                         {report.taskIds.slice(0, 3).map(taskId => {
                           const task = getTaskById(taskId);
                           return (
-                            <li key={taskId}>{task?.title || "Unknown task"}</li>
+                            <li key={taskId} className="truncate">{task?.title || "Unknown task"}</li>
                           );
                         })}
                         {report.taskIds.length > 3 && (
@@ -144,7 +149,11 @@ export default function Reports() {
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button variant="outline" className="w-full" onClick={() => handleDownload(report.id)}>
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
+                      onClick={() => handleDownload(report.id)}
+                    >
                       View Full Report
                     </Button>
                   </CardFooter>
