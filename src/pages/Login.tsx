@@ -7,7 +7,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
-            <img src="/logo.png" alt="Chatzy Logo" className="h-16 w-16" />
+            <img src="/lovable-uploads/cfe1ecb1-7b60-4bb3-9d51-e7a3719aa0a7.png" alt="Chatzy Logo" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-bold mb-2">Chatzy TaskMaster</h1>
           <p className="text-muted-foreground">
