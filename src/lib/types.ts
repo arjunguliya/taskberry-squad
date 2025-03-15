@@ -31,6 +31,7 @@ export interface Task {
   targetDate: string;
   status: TaskStatus;
   lastUpdated: string;
+  completedDate?: string; // Optional field for when a task is completed
 }
 
 export interface Report {

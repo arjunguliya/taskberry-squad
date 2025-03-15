@@ -7,12 +7,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReportForm } from "@/components/reports/ReportForm";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { BarChart3, CalendarDays, Download, FileText, Printer } from "lucide-react";
-import { getReports, getTaskById } from "@/lib/dataService";
+import { BarChart3, CalendarDays, Download, FileText, Printer, ArrowDown, ArrowUp } from "lucide-react";
+import { getReports, getTaskById, getUserById } from "@/lib/dataService";
 import { formatDate } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Task, TaskStatus } from "@/lib/types";
+
+type SortDirection = 'asc' | 'desc' | null;
+type SortableColumn = 'title' | 'status' | 'assignee' | 'assignedDate' | 'targetDate' | 'completedDate';
 
 export default function Reports() {
   const [reportType, setReportType] = useState<string>("daily");
@@ -21,6 +24,8 @@ export default function Reports() {
   const [reports, setReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
   const [isViewReportOpen, setIsViewReportOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortableColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const isMobile = useIsMobile();
   
   useEffect(() => {
@@ -77,6 +82,70 @@ export default function Reports() {
       const task = getTaskById(id);
       return task || { id, title: "Unknown task", status: "unknown" };
     });
+  };
+
+  // Sort tasks based on current sort column and direction
+  const getSortedTasks = () => {
+    const tasks = getReportTasks();
+    
+    if (!sortColumn || !sortDirection) {
+      return tasks;
+    }
+    
+    return [...tasks].sort((a, b) => {
+      let valueA, valueB;
+      
+      if (sortColumn === 'assignee') {
+        const userA = getUserById(a.assigneeId);
+        const userB = getUserById(b.assigneeId);
+        valueA = userA?.name || 'Unknown';
+        valueB = userB?.name || 'Unknown';
+      } else if (sortColumn === 'completedDate') {
+        valueA = a.status === TaskStatus.COMPLETED ? a.lastUpdated : '';
+        valueB = b.status === TaskStatus.COMPLETED ? b.lastUpdated : '';
+      } else {
+        valueA = a[sortColumn] || '';
+        valueB = b[sortColumn] || '';
+      }
+      
+      if (sortDirection === 'asc') {
+        return valueA.localeCompare(valueB);
+      } else {
+        return valueB.localeCompare(valueA);
+      }
+    });
+  };
+
+  // Handle column sort
+  const handleSort = (column: SortableColumn) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column is clicked
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortDirection(null);
+        setSortColumn(null);
+      } else {
+        setSortDirection('asc');
+      }
+    } else {
+      // New column, start with ascending
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Render sort indicator
+  const renderSortIndicator = (column: SortableColumn) => {
+    if (sortColumn !== column) return null;
+    
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="inline h-4 w-4 ml-1" />;
+    } else if (sortDirection === 'desc') {
+      return <ArrowDown className="inline h-4 w-4 ml-1" />;
+    }
+    
+    return null;
   };
 
   // Prepare data for charts
@@ -316,31 +385,72 @@ export default function Reports() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Assigned Date</TableHead>
-                  <TableHead>Target Date</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('title')}
+                  >
+                    Task {renderSortIndicator('title')}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('status')}
+                  >
+                    Status {renderSortIndicator('status')}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('assignee')}
+                  >
+                    Assigned To {renderSortIndicator('assignee')}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('assignedDate')}
+                  >
+                    Assigned Date {renderSortIndicator('assignedDate')}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('targetDate')}
+                  >
+                    Target Date {renderSortIndicator('targetDate')}
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => handleSort('completedDate')}
+                  >
+                    Completion Date {renderSortIndicator('completedDate')}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {getReportTasks().map((task: Task) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.title}</TableCell>
-                    <TableCell>
-                      <div className={`px-2 py-1 rounded-full text-xs inline-flex items-center ${
-                        task.status === TaskStatus.COMPLETED 
-                          ? 'bg-green-100 text-green-800' 
-                          : task.status === TaskStatus.IN_PROGRESS 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {task.status}
-                      </div>
-                    </TableCell>
-                    <TableCell>{task.assignedDate ? formatDate(task.assignedDate) : 'N/A'}</TableCell>
-                    <TableCell>{task.targetDate ? formatDate(task.targetDate) : 'N/A'}</TableCell>
-                  </TableRow>
-                ))}
+                {getSortedTasks().map((task: Task) => {
+                  const assignee = getUserById(task.assigneeId);
+                  return (
+                    <TableRow key={task.id}>
+                      <TableCell className="font-medium">{task.title}</TableCell>
+                      <TableCell>
+                        <div className={`px-2 py-1 rounded-full text-xs inline-flex items-center ${
+                          task.status === TaskStatus.COMPLETED 
+                            ? 'bg-green-100 text-green-800' 
+                            : task.status === TaskStatus.IN_PROGRESS 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {task.status}
+                        </div>
+                      </TableCell>
+                      <TableCell>{assignee?.name || 'Unknown'}</TableCell>
+                      <TableCell>{task.assignedDate ? formatDate(task.assignedDate) : 'N/A'}</TableCell>
+                      <TableCell>{task.targetDate ? formatDate(task.targetDate) : 'N/A'}</TableCell>
+                      <TableCell>
+                        {task.status === TaskStatus.COMPLETED 
+                          ? formatDate(task.completedDate || task.lastUpdated) 
+                          : '-'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
