@@ -59,7 +59,10 @@ export function Sidebar() {
                 src="/lovable-uploads/cfe1ecb1-7b60-4bb3-9d51-e7a3719aa0a7.png" 
                 alt="Chatzy Logo" 
                 className="h-8 w-8 mr-2"
-                onError={(e) => console.error("Logo failed to load", e)}
+                onError={(e) => {
+                  console.error("Sidebar logo failed to load", e);
+                  (e.target as HTMLImageElement).src = "/placeholder.svg";
+                }}
               />
               {(!collapsed || isMobile) && (
                 <h2 className="text-lg font-semibold">Chatzy TaskMaster</h2>

@@ -8,9 +8,13 @@ export default function Login() {
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
             <img 
-              src="/lovable-uploads/Chatzy.png" 
+              src="/lovable-uploads/cfe1ecb1-7b60-4bb3-9d51-e7a3719aa0a7.png" 
               alt="Chatzy Logo" 
-              className="h-16 w-16" 
+              className="h-16 w-16"
+              onError={(e) => {
+                console.error("Login logo failed to load", e);
+                (e.target as HTMLImageElement).src = "/placeholder.svg";
+              }}
             />
           </div>
           <h1 className="text-3xl font-bold mb-2">Chatzy TaskMaster</h1>
