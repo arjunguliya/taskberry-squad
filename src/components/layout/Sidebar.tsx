@@ -56,7 +56,7 @@ export function Sidebar() {
           <div className="flex h-14 items-center px-3 border-b">
             <div className="flex items-center">
               <img 
-                src="/lovable-uploads/cfe1ecb1-7b60-4bb3-9d51-e7a3719aa0a7.png" 
+                src="/lovable-uploads/Chatzy.png" 
                 alt="Chatzy Logo" 
                 className="h-8 w-8 mr-2"
                 onError={(e) => {
