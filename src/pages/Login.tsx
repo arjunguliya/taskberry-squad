@@ -8,7 +8,7 @@ export default function Login() {
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
             <img 
-              src="/lovable-uploads/Chatzy.png" 
+              src="/Chatzy.png" 
               alt="Chatzy Logo" 
               className="h-16 w-16"
               onError={(e) => {
