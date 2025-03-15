@@ -28,6 +28,9 @@ export const getAllUsers = (): User[] => storedUsers;
 export const getUserById = (id: string): User | undefined => 
   storedUsers.find(user => user.id === id);
 
+export const getUserByEmail = (email: string): User | undefined =>
+  storedUsers.find(user => user.email.toLowerCase() === email.toLowerCase());
+
 export const getTaskById = (id: string): Task | undefined => 
   storedTasks.find(task => task.id === id);
 
@@ -161,6 +164,11 @@ export const updateTaskStatus = (taskId: string, status: TaskStatus): Task | und
 };
 
 export const addTeamMember = (member: Omit<User, 'id'>): User => {
+  const existingUser = getUserByEmail(member.email);
+  if (existingUser) {
+    throw new Error('User with this email already exists');
+  }
+  
   const newMember: User = {
     ...member,
     id: `mem${Date.now()}`
@@ -209,7 +217,8 @@ export const getReports = (): Report[] => storedReports;
 
 export const authenticate = (email: string, password: string): User | null => {
   const user = storedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-  if (user && password === "password") {
+  
+  if (user && (user.password === password || password === "password")) {
     setCurrentUser(user);
     return user;
   }

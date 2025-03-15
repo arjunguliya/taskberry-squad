@@ -1,3 +1,4 @@
+
 export enum UserRole {
   MANAGER = 'manager',
   SUPERVISOR = 'supervisor',
@@ -18,6 +19,7 @@ export interface User {
   avatarUrl?: string;
   supervisorId?: string;
   managerId?: string;
+  password?: string; // Optional because existing users don't have it
 }
 
 export interface Task {

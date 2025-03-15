@@ -5,16 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReportForm } from "@/components/reports/ReportForm";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { BarChart3, CalendarDays, Download, FileText, Printer } from "lucide-react";
 import { getReports, getTaskById } from "@/lib/dataService";
 import { formatDate } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { Task, TaskStatus } from "@/lib/types";
 
 export default function Reports() {
   const [reportType, setReportType] = useState<string>("daily");
   const [isReportFormOpen, setIsReportFormOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [reports, setReports] = useState([]);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [isViewReportOpen, setIsViewReportOpen] = useState(false);
   const isMobile = useIsMobile();
   
   useEffect(() => {
@@ -54,6 +60,54 @@ export default function Reports() {
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
   };
+
+  const openFullReport = (reportId: string) => {
+    const report = filteredReports.find(r => r.id === reportId);
+    if (!report) return;
+    
+    setSelectedReport(report);
+    setIsViewReportOpen(true);
+  };
+
+  // Get task details for the selected report
+  const getReportTasks = () => {
+    if (!selectedReport) return [];
+    
+    return selectedReport.taskIds.map(id => {
+      const task = getTaskById(id);
+      return task || { id, title: "Unknown task", status: "unknown" };
+    });
+  };
+
+  // Prepare data for charts
+  const prepareChartData = () => {
+    // Count tasks by status for all reports of the selected type
+    const statusCounts = { completed: 0, inProgress: 0, notStarted: 0 };
+    
+    filteredReports.forEach(report => {
+      report.taskIds.forEach(taskId => {
+        const task = getTaskById(taskId);
+        if (task) {
+          if (task.status === TaskStatus.COMPLETED) {
+            statusCounts.completed++;
+          } else if (task.status === TaskStatus.IN_PROGRESS) {
+            statusCounts.inProgress++;
+          } else if (task.status === TaskStatus.NOT_STARTED) {
+            statusCounts.notStarted++;
+          }
+        }
+      });
+    });
+    
+    return [
+      { name: 'Completed', value: statusCounts.completed },
+      { name: 'In Progress', value: statusCounts.inProgress },
+      { name: 'Not Started', value: statusCounts.notStarted }
+    ];
+  };
+
+  const chartData = prepareChartData();
+  const COLORS = ['#4caf50', '#2196f3', '#ff9800'];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -152,7 +206,7 @@ export default function Reports() {
                     <Button 
                       variant="outline" 
                       className="w-full" 
-                      onClick={() => handleDownload(report.id)}
+                      onClick={() => openFullReport(report.id)}
                     >
                       View Full Report
                     </Button>
@@ -184,14 +238,57 @@ export default function Reports() {
                 Visual representation of task performance and status
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[400px] flex items-center justify-center">
-              <div className="text-center">
-                <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                <h3 className="text-lg font-medium">Charts Coming Soon</h3>
-                <p className="text-muted-foreground">
-                  Task analytics visualization will be available in the next update
-                </p>
-              </div>
+            <CardContent className="h-[400px]">
+              {filteredReports.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                  <div className="flex flex-col items-center">
+                    <h3 className="font-medium mb-2">Task Status Distribution</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={true}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <h3 className="font-medium mb-2">Task Status Counts</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="value" name="Tasks" fill="#8884d8" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-center">
+                  <div>
+                    <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
+                    <h3 className="text-lg font-medium">No Data Available</h3>
+                    <p className="text-muted-foreground">
+                      Generate reports to see analytics visualization
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -203,6 +300,62 @@ export default function Reports() {
         onOpenChange={setIsReportFormOpen}
         onSuccess={handleReportSuccess}
       />
+
+      {/* View Full Report Dialog */}
+      <Dialog open={isViewReportOpen} onOpenChange={setIsViewReportOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedReport?.title}</DialogTitle>
+            <DialogDescription>
+              Generated on {selectedReport ? formatDate(selectedReport.generatedAt) : ''}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="mt-4">
+            <h3 className="text-lg font-medium mb-2">Tasks in this report</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Task</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Assigned Date</TableHead>
+                  <TableHead>Target Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {getReportTasks().map((task: Task) => (
+                  <TableRow key={task.id}>
+                    <TableCell className="font-medium">{task.title}</TableCell>
+                    <TableCell>
+                      <div className={`px-2 py-1 rounded-full text-xs inline-flex items-center ${
+                        task.status === TaskStatus.COMPLETED 
+                          ? 'bg-green-100 text-green-800' 
+                          : task.status === TaskStatus.IN_PROGRESS 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {task.status}
+                      </div>
+                    </TableCell>
+                    <TableCell>{task.assignedDate ? formatDate(task.assignedDate) : 'N/A'}</TableCell>
+                    <TableCell>{task.targetDate ? formatDate(task.targetDate) : 'N/A'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsViewReportOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => handleDownload(selectedReport?.id)}>
+              <Download className="h-4 w-4 mr-2" />
+              Download Report
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

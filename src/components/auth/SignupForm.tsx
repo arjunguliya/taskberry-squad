@@ -38,11 +38,12 @@ export function SignupForm() {
     // Create new user
     setTimeout(() => {
       try {
-        // In a real app, you would hash the password before storing it
+        // Store the user with their password
         const newUser = addTeamMember({
           name,
           email,
           role: UserRole.MEMBER, // Default role for new users
+          password, // Store the password for authentication
         });
 
         toast.success(`Account created successfully! Welcome, ${newUser.name}!`);
