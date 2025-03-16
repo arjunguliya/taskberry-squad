@@ -30,6 +30,7 @@ export const configureEmailService = (config: Partial<EmailConfig>): void => {
  */
 interface EmailData {
   to: string;
+  from?: string; // Added the missing from property
   subject: string;
   html: string;
   text?: string;
@@ -310,4 +311,3 @@ export const resetPassword = async (token: string, newPassword: string): Promise
     return false;
   }
 };
-
