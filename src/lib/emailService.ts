@@ -1,6 +1,6 @@
 
 import { toast } from 'sonner';
-import { getUserByEmail } from './dataService';
+import { getUserByEmail, updateUserPassword } from './dataService';
 
 /**
  * Sends a password reset email with a reset link
@@ -47,6 +47,35 @@ export const sendPasswordResetEmail = async (email: string): Promise<boolean> =>
     return true;
   } catch (error) {
     console.error('Error sending reset email:', error);
+    return false;
+  }
+};
+
+/**
+ * Reset a user's password with the provided token
+ */
+export const resetPassword = async (token: string, newPassword: string): Promise<boolean> => {
+  try {
+    // In a real app, you would validate this token against a database
+    // Here we're just decoding it and extracting the email
+    const decodedToken = atob(token);
+    
+    if (!decodedToken.startsWith('reset-')) {
+      return false;
+    }
+    
+    // Extract the email from the token
+    const tokenParts = decodedToken.split('-');
+    const email = tokenParts[1];
+    
+    if (!email) {
+      return false;
+    }
+    
+    // Update the user's password
+    return updateUserPassword(email, newPassword);
+  } catch (error) {
+    console.error('Error resetting password:', error);
     return false;
   }
 };
