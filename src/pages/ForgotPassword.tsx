@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
-import { sendPasswordResetEmail } from "@/lib/emailService";
+import { sendPasswordResetEmail, configureEmailService } from "@/lib/emailService";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export default function ForgotPassword() {
       
       if (success) {
         setSubmitted(true);
-        toast.success("If an account exists with this email, reset instructions have been sent.");
+        // Toast is shown by the email service itself
       } else {
         toast.error("Failed to send reset instructions. Please try again later.");
       }

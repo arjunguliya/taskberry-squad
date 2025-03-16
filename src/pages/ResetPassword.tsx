@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { getUserByEmail } from "@/lib/dataService";
+import { resetPassword } from "@/lib/emailService";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -43,7 +42,7 @@ export default function ResetPassword() {
     }
   }, [token]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -66,33 +65,22 @@ export default function ResetPassword() {
       return;
     }
 
-    // In a real app, we would update the user's password in a database
-    setTimeout(() => {
-      try {
-        // Extract email from token (in a real app, you'd validate this against a database)
-        const decodedToken = atob(token!);
-        const email = decodedToken.split('-')[1];
-        
-        // Check if user exists
-        const user = getUserByEmail(email);
-        if (!user) {
-          toast.error("User not found");
-          setLoading(false);
-          return;
-        }
-        
-        // In a real app, you would update the password in the database
-        console.log(`Password reset for ${email} - New password: ${password}`);
-        
+    try {
+      // Call the resetPassword function from emailService
+      const success = await resetPassword(token!, password);
+      
+      if (success) {
         toast.success("Password reset successfully!");
-        setTimeout(() => navigate("/login"), 1000);
-      } catch (error) {
-        console.error("Error resetting password:", error);
-        toast.error("Failed to reset password. Please try again.");
-      } finally {
-        setLoading(false);
+        setTimeout(() => navigate("/login"), 1500);
+      } else {
+        toast.error("Failed to reset password. The token may be invalid or expired.");
       }
-    }, 1000);
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      toast.error("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (tokenValid === false) {
