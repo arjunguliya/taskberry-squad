@@ -28,19 +28,7 @@ export const sendPasswordResetEmail = async (email: string): Promise<boolean> =>
     
     // In a development/demo environment, provide the link in the UI
     toast.info(
-      <div className="space-y-2">
-        <p>In a real app, an email would be sent to {email}</p>
-        <p className="text-xs">
-          <a 
-            href={`/reset-password?token=${token}`}
-            className="underline text-blue-500"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Click here to simulate opening the reset link
-          </a>
-        </p>
-      </div>,
+      `Password reset link sent to ${email}. In a real app, an email would be sent. To simulate, use this link: /reset-password?token=${token}`,
       { duration: 10000 }
     );
     
