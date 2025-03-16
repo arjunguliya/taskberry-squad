@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
+import { sendPasswordResetEmail } from "@/lib/emailService";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -24,12 +25,22 @@ export default function ForgotPassword() {
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      setSubmitted(true);
-      toast.success("If an account exists with this email, reset instructions have been sent.");
+    try {
+      // Call our email service to send the reset instructions
+      const success = await sendPasswordResetEmail(email);
+      
+      if (success) {
+        setSubmitted(true);
+        toast.success("If an account exists with this email, reset instructions have been sent.");
+      } else {
+        toast.error("Failed to send reset instructions. Please try again later.");
+      }
+    } catch (error) {
+      console.error("Error in password reset process:", error);
+      toast.error("An unexpected error occurred. Please try again later.");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (

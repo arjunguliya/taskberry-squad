@@ -31,6 +31,23 @@ export const getUserById = (id: string): User | undefined =>
 export const getUserByEmail = (email: string): User | undefined =>
   storedUsers.find(user => user.email.toLowerCase() === email.toLowerCase());
 
+export const updateUserPassword = (email: string, newPassword: string): boolean => {
+  const userIndex = storedUsers.findIndex(user => user.email.toLowerCase() === email.toLowerCase());
+  
+  if (userIndex === -1) {
+    return false;
+  }
+  
+  storedUsers[userIndex] = {
+    ...storedUsers[userIndex],
+    password: newPassword
+  };
+  
+  saveData('users', storedUsers);
+  toast.success('Password updated successfully');
+  return true;
+};
+
 export const getTaskById = (id: string): Task | undefined => 
   storedTasks.find(task => task.id === id);
 
