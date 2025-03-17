@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { getCurrentUser } from "@/lib/dataService";
 import { getInitials } from "@/lib/utils";
-import { UserCog, Bell, Shield, LogOut } from "lucide-react";
+import { UserCog, Bell, Shield, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Settings() {
@@ -58,8 +58,13 @@ export default function Settings() {
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="flex justify-center mb-4">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
-                  <AvatarFallback className="text-lg">{getInitials(currentUser.name)}</AvatarFallback>
+                  {currentUser.avatarUrl ? (
+                    <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+                  ) : (
+                    <AvatarFallback className="text-lg bg-primary text-primary-foreground">
+                      <span>{getInitials(currentUser.name)}</span>
+                    </AvatarFallback>
+                  )}
                 </Avatar>
               </div>
               
