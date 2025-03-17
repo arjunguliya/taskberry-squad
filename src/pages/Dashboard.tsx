@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,13 +15,13 @@ import { BarChart, CalendarClock, CheckCircle, Clock, ListTodo, Plus, Users, X }
 import { getCurrentUser, getTasksForTeam, getTeamMembers, updateTaskStatus } from "@/lib/dataService";
 import { TaskDetailsList } from "@/components/dashboard/TaskDetailsList";
 import { TeamMembersList } from "@/components/dashboard/TeamMembersList";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Dashboard() {
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   
   // Dialog states
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);

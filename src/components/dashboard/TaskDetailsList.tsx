@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Task } from "@/lib/types";
+import { Task, TaskStatus } from "@/lib/types";
 import { getUserById, updateTaskStatus } from "@/lib/dataService";
 import { formatDate, getRelativeTime } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -32,7 +32,7 @@ export function TaskDetailsList({ tasks, onEdit, emptyMessage, refetch }: TaskDe
   const handleMarkComplete = async (taskId: string) => {
     setUpdatingTaskId(taskId);
     try {
-      await updateTaskStatus(taskId, "completed");
+      await updateTaskStatus(taskId, TaskStatus.COMPLETED);
       if (refetch) refetch();
     } catch (error) {
       console.error("Error updating task status:", error);
