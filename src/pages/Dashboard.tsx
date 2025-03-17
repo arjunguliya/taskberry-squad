@@ -7,21 +7,43 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvatarGroup } from "@/components/ui/avatar-group";
 import { TaskCard } from "@/components/dashboard/TaskCard";
 import { TaskForm } from "@/components/dashboard/TaskForm";
-import { Task, TaskStatus } from "@/lib/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Task, TaskStatus, User } from "@/lib/types";
 import { calculateStatusCounts, getInitials } from "@/lib/utils";
-import { BarChart, CalendarClock, CheckCircle, Clock, ListTodo, Plus, Users } from "lucide-react";
-import { getCurrentUser, getTasksForTeam, getTeamMembers } from "@/lib/dataService";
+import { BarChart, CalendarClock, CheckCircle, Clock, ListTodo, Plus, Users, X } from "lucide-react";
+import { getCurrentUser, getTasksForTeam, getTeamMembers, updateTaskStatus } from "@/lib/dataService";
+import { TaskDetailsList } from "@/components/dashboard/TaskDetailsList";
+import { TeamMembersList } from "@/components/dashboard/TeamMembersList";
+import { useMobile } from "@/hooks/use-mobile";
 
 export default function Dashboard() {
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
+  const isMobile = useMobile();
+  
+  // Dialog states
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
+  const [completedTasksDialogOpen, setCompletedTasksDialogOpen] = useState(false);
+  const [inProgressTasksDialogOpen, setInProgressTasksDialogOpen] = useState(false);
+  const [overdueTasksDialogOpen, setOverdueTasksDialogOpen] = useState(false);
   
   // Get data based on user role
   const currentUser = getCurrentUser();
   const teamMembers = getTeamMembers(currentUser.id);
   const teamTasks = getTasksForTeam(currentUser.id);
   const statusCounts = calculateStatusCounts(teamTasks);
+  
+  // Filter tasks by status
+  const completedTasks = teamTasks.filter(task => task.status === TaskStatus.COMPLETED);
+  const inProgressTasks = teamTasks.filter(task => task.status === TaskStatus.IN_PROGRESS);
+  const overdueTasks = teamTasks.filter(task => {
+    const today = new Date();
+    const dueDate = new Date(task.targetDate);
+    return dueDate < today && task.status !== TaskStatus.COMPLETED;
+  });
   
   // Recent tasks (limited to 5)
   const recentTasks = [...teamTasks].sort((a, b) => 
@@ -42,6 +64,12 @@ export default function Dashboard() {
     setSelectedTask(task);
     setIsTaskFormOpen(true);
   };
+
+  // Create component based on screen size
+  const DialogComponent = isMobile ? Drawer : Dialog;
+  const DialogContentComponent = isMobile ? DrawerContent : DialogContent;
+  const DialogHeaderComponent = isMobile ? DrawerHeader : DialogHeader;
+  const DialogTitleComponent = isMobile ? DrawerTitle : DialogTitle;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -66,7 +94,10 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="animate-slide-up animation-delay-100">
+        <Card 
+          className="animate-slide-up animation-delay-100 cursor-pointer hover:bg-accent/10 transition-colors"
+          onClick={() => setTeamDialogOpen(true)}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Team Members
@@ -80,7 +111,10 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="animate-slide-up animation-delay-200">
+        <Card 
+          className="animate-slide-up animation-delay-200 cursor-pointer hover:bg-accent/10 transition-colors"
+          onClick={() => setCompletedTasksDialogOpen(true)}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Completed Tasks
@@ -94,7 +128,10 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-        <Card className="animate-slide-up animation-delay-300">
+        <Card 
+          className="animate-slide-up animation-delay-300 cursor-pointer hover:bg-accent/10 transition-colors"
+          onClick={() => setInProgressTasksDialogOpen(true)}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               In Progress
@@ -108,7 +145,10 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-        <Card className="animate-slide-up animation-delay-400">
+        <Card 
+          className="animate-slide-up animation-delay-400 cursor-pointer hover:bg-accent/10 transition-colors"
+          onClick={() => setOverdueTasksDialogOpen(true)}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Overdue Tasks
@@ -187,6 +227,73 @@ export default function Dashboard() {
         task={selectedTask}
         onSuccess={handleTaskSuccess}
       />
+
+      {/* Team Members Dialog */}
+      <DialogComponent open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
+        <DialogContentComponent className="sm:max-w-[600px]">
+          <DialogHeaderComponent>
+            <DialogTitleComponent className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team Members ({teamMembers.length})
+            </DialogTitleComponent>
+          </DialogHeaderComponent>
+          <TeamMembersList members={teamMembers} />
+        </DialogContentComponent>
+      </DialogComponent>
+
+      {/* Completed Tasks Dialog */}
+      <DialogComponent open={completedTasksDialogOpen} onOpenChange={setCompletedTasksDialogOpen}>
+        <DialogContentComponent className="sm:max-w-[600px]">
+          <DialogHeaderComponent>
+            <DialogTitleComponent className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              Completed Tasks ({completedTasks.length})
+            </DialogTitleComponent>
+          </DialogHeaderComponent>
+          <TaskDetailsList 
+            tasks={completedTasks} 
+            onEdit={handleEditTask} 
+            emptyMessage="No completed tasks found."
+            refetch={handleTaskSuccess}
+          />
+        </DialogContentComponent>
+      </DialogComponent>
+
+      {/* In Progress Tasks Dialog */}
+      <DialogComponent open={inProgressTasksDialogOpen} onOpenChange={setInProgressTasksDialogOpen}>
+        <DialogContentComponent className="sm:max-w-[600px]">
+          <DialogHeaderComponent>
+            <DialogTitleComponent className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              In Progress Tasks ({inProgressTasks.length})
+            </DialogTitleComponent>
+          </DialogHeaderComponent>
+          <TaskDetailsList 
+            tasks={inProgressTasks} 
+            onEdit={handleEditTask} 
+            emptyMessage="No in-progress tasks found."
+            refetch={handleTaskSuccess}
+          />
+        </DialogContentComponent>
+      </DialogComponent>
+
+      {/* Overdue Tasks Dialog */}
+      <DialogComponent open={overdueTasksDialogOpen} onOpenChange={setOverdueTasksDialogOpen}>
+        <DialogContentComponent className="sm:max-w-[600px]">
+          <DialogHeaderComponent>
+            <DialogTitleComponent className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              Overdue Tasks ({overdueTasks.length})
+            </DialogTitleComponent>
+          </DialogHeaderComponent>
+          <TaskDetailsList 
+            tasks={overdueTasks} 
+            onEdit={handleEditTask} 
+            emptyMessage="No overdue tasks found."
+            refetch={handleTaskSuccess}
+          />
+        </DialogContentComponent>
+      </DialogComponent>
     </div>
   );
 }
