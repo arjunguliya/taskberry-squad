@@ -8,6 +8,7 @@ export const users: User[] = [
     email: 'admin@example.com',
     role: UserRole.SUPER_ADMIN,
     avatarUrl: 'https://i.pravatar.cc/150?img=0',
+    password: 'password',
   },
   {
     id: 'manager1',
