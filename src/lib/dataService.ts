@@ -3,18 +3,37 @@ import { users, tasks, reports, currentUser as initialCurrentUser } from '@/lib/
 import { toast } from 'sonner';
 
 const loadData = <T>(key: string, initialData: T): T => {
-  const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : initialData;
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : initialData;
+  } catch (e) {
+    console.error(`Error loading ${key} from localStorage:`, e);
+    return initialData;
+  }
 };
 
 const saveData = <T>(key: string, data: T): void => {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error(`Error saving ${key} to localStorage:`, e);
+  }
 };
 
 let storedUsers = loadData<User[]>('users', users);
 let storedTasks = loadData<Task[]>('tasks', tasks);
 let storedReports = loadData<Report[]>('reports', reports);
 let storedCurrentUser = loadData<User>('currentUser', initialCurrentUser);
+
+const ensureAdminPassword = () => {
+  const adminIndex = storedUsers.findIndex(u => u.role === UserRole.SUPER_ADMIN);
+  if (adminIndex >= 0 && (!storedUsers[adminIndex].password || storedUsers[adminIndex].password === '')) {
+    storedUsers[adminIndex].password = 'password';
+    saveData('users', storedUsers);
+  }
+};
+
+ensureAdminPassword();
 
 export const getCurrentUser = (): User => storedCurrentUser;
 
@@ -233,16 +252,38 @@ export const generateReport = (title: string, type: 'daily' | 'weekly' | 'monthl
 export const getReports = (): Report[] => storedReports;
 
 export const authenticate = (email: string, password: string): User | null => {
-  const user = storedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  console.log(`Attempting to authenticate: ${email}`);
   
-  if (user && user.role === UserRole.SUPER_ADMIN && (!user.password || user.password === '')) {
-    user.password = 'password';
+  const user = storedUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  console.log('Found user:', user);
+  
+  if (!user) {
+    console.log('No user found with this email');
+    return null;
   }
   
-  if (user && (user.password === password || password === "password")) {
+  if (user.role === UserRole.SUPER_ADMIN) {
+    console.log('Super admin login attempt');
+    if (!user.password) {
+      user.password = 'password';
+      console.log('Set default password for super admin');
+      
+      const updatedUsers = storedUsers.map(u => 
+        u.id === user.id ? { ...u, password: 'password' } : u
+      );
+      storedUsers = updatedUsers;
+      saveData('users', storedUsers);
+    }
+  }
+  
+  const passwordMatch = user.password === password || password === "password";
+  console.log('Password match:', passwordMatch);
+  
+  if (passwordMatch) {
     setCurrentUser(user);
     return user;
   }
+  
   return null;
 };
 
@@ -251,9 +292,24 @@ export const logout = (): void => {
 };
 
 if (!localStorage.getItem('initialized')) {
+  console.log('Initializing localStorage with default data');
   saveData('users', users);
   saveData('tasks', tasks);
   saveData('reports', reports);
   saveData('currentUser', initialCurrentUser);
   localStorage.setItem('initialized', 'true');
 }
+
+export const resetDataToDefaults = () => {
+  console.log('Resetting data to defaults');
+  localStorage.clear();
+  storedUsers = users;
+  storedTasks = tasks;
+  storedReports = reports;
+  storedCurrentUser = initialCurrentUser;
+  saveData('users', users);
+  saveData('tasks', tasks);
+  saveData('reports', reports);
+  saveData('currentUser', initialCurrentUser);
+  localStorage.setItem('initialized', 'true');
+};

@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lock, Mail } from "lucide-react";
+import { Lock, Mail, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { authenticate } from "@/lib/dataService";
+import { authenticate, resetDataToDefaults } from "@/lib/dataService";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -26,6 +26,8 @@ export function LoginForm() {
       return;
     }
 
+    console.log(`Attempting login with ${email} / ${password}`);
+
     // Use our authentication service
     setTimeout(() => {
       const user = authenticate(email, password);
@@ -39,6 +41,13 @@ export function LoginForm() {
       
       setLoading(false);
     }, 1000);
+  };
+
+  const handleReset = () => {
+    resetDataToDefaults();
+    toast.success("Application data has been reset to defaults");
+    setEmail("");
+    setPassword("");
   };
 
   return (
@@ -98,6 +107,17 @@ export function LoginForm() {
               Sign up
             </Link>
           </p>
+          <div className="mt-4 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className="h-3 w-3" /> Reset data
+            </Button>
+          </div>
         </CardFooter>
       </form>
     </Card>
