@@ -3,6 +3,13 @@ import { User, UserRole, Task, TaskStatus, Report } from './types';
 // Sample users with hierarchy
 export const users: User[] = [
   {
+    id: 'admin1',
+    name: 'System Admin',
+    email: 'admin@example.com',
+    role: UserRole.SUPER_ADMIN,
+    avatarUrl: 'https://i.pravatar.cc/150?img=0',
+  },
+  {
     id: 'manager1',
     name: 'Alex Morgan',
     email: 'alex@example.com',
