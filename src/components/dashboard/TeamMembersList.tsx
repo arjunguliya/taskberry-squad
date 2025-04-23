@@ -1,4 +1,3 @@
-
 import { User, UserRole } from "@/lib/types";
 import { getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -6,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Mail, ListTodo } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface TeamMembersListProps {
   members: User[];
 }
 
 export function TeamMembersList({ members }: TeamMembersListProps) {
+  const navigate = useNavigate();
+
   if (members.length === 0) {
     return (
       <div className="py-8 text-center">
@@ -31,6 +33,10 @@ export function TeamMembersList({ members }: TeamMembersListProps) {
       default:
         return null;
     }
+  };
+
+  const handleViewTasks = (memberId: string) => {
+    navigate(`/tasks?memberId=${memberId}`);
   };
 
   return (
@@ -72,7 +78,7 @@ export function TeamMembersList({ members }: TeamMembersListProps) {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => window.location.href = "/tasks"}
+                  onClick={() => handleViewTasks(member.id)}
                 >
                   <ListTodo className="h-3.5 w-3.5 mr-1" />
                   View Tasks

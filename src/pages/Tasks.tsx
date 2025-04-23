@@ -1,5 +1,5 @@
-
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,17 +11,17 @@ import { Plus, Search } from "lucide-react";
 import { getCurrentUser, getTasksForTeam } from "@/lib/dataService";
 
 export default function Tasks() {
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
   
-  // Get tasks based on user role
   const currentUser = getCurrentUser();
+  const memberIdFromUrl = searchParams.get('memberId');
   const teamTasks = getTasksForTeam(currentUser.id);
   
-  // Filter tasks based on search and status
   const filteredTasks = teamTasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         task.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -33,7 +33,9 @@ export default function Tasks() {
                         (statusFilter === "overdue" && new Date(task.targetDate) < new Date() && 
                           task.status !== TaskStatus.COMPLETED);
     
-    return matchesSearch && matchesStatus;
+    const matchesMember = memberIdFromUrl ? task.assigneeId === memberIdFromUrl : true;
+    
+    return matchesSearch && matchesStatus && matchesMember;
   });
 
   const handleAddTask = () => {
@@ -126,7 +128,6 @@ export default function Tasks() {
         </div>
       )}
 
-      {/* Task Form Dialog */}
       <TaskForm 
         open={isTaskFormOpen}
         onOpenChange={setIsTaskFormOpen}
