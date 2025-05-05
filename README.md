@@ -1,69 +1,87 @@
-# Welcome to your Lovable project
 
-## Project info
+# Team Management Application
 
-**URL**: https://lovable.dev/projects/7229f157-991d-4146-b3c7-abecb76b3e98
+A full-stack application for team management and task tracking.
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/7229f157-991d-4146-b3c7-abecb76b3e98) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
+## Frontend
+- React with TypeScript
 - Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- Tailwind CSS and shadcn/ui for styling
+- React Router for navigation
+- React Query for API data fetching
 
-## How can I deploy this project?
+## Backend
+- Node.js with Express
+- MongoDB with Mongoose for data storage
+- JWT for authentication
+- RESTful API architecture
 
-Simply open [Lovable](https://lovable.dev/projects/7229f157-991d-4146-b3c7-abecb76b3e98) and click on Share -> Publish.
+## Getting Started
 
-## I want to use a custom domain - is that possible?
+### Prerequisites
+- Node.js (v14+)
+- MongoDB (local or Atlas)
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+### Installation
+
+1. Clone the repository:
+   ```
+   git clone [your-repo-url]
+   ```
+
+2. Install frontend dependencies:
+   ```
+   cd team-management
+   npm install
+   ```
+
+3. Install backend dependencies:
+   ```
+   cd backend
+   npm install
+   ```
+
+4. Create a .env file in the backend directory with:
+   ```
+   PORT=5000
+   MONGO_URI=mongodb://localhost:27017/team-management
+   JWT_SECRET=your_jwt_secret_key_change_this_in_production
+   ```
+
+5. Start the backend server:
+   ```
+   cd backend
+   npm run dev
+   ```
+
+6. Start the frontend development server:
+   ```
+   cd ..
+   npm run dev
+   ```
+
+7. Open your browser and go to http://localhost:5173
+
+## Features
+- User authentication and authorization
+- Role-based access control
+- Team hierarchy management
+- Task assignment and tracking
+- Reporting and analytics
+
+## Deployment
+
+### Backend
+1. Set up a MongoDB database (MongoDB Atlas recommended for production)
+2. Deploy the Node.js backend to a hosting service (Heroku, DigitalOcean, AWS, etc.)
+3. Configure environment variables for the production environment
+
+### Frontend
+1. Build the frontend for production:
+   ```
+   npm run build
+   ```
+2. Deploy the static files from the dist directory to a static hosting service
+
+## License
+[MIT](LICENSE)
