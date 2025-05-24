@@ -34,10 +34,14 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
       // Reset form when opened
       setName("");
       setEmail("");
+      setSupervisorId("");
+      setManagerId("");
       setReportingTo("supervisor");
       
       // Default role based on current user's role
-      if (currentUser.role === UserRole.MANAGER) {
+      if (currentUser.role === UserRole.SUPER_ADMIN) {
+        setRole(UserRole.MANAGER); // Super admin can create managers by default
+      } else if (currentUser.role === UserRole.MANAGER) {
         setRole(UserRole.SUPERVISOR);
         setManagerId(currentUser.id);
       } else if (currentUser.role === UserRole.SUPERVISOR) {
@@ -59,6 +63,7 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
       return;
     }
     
+    // Validation based on role
     if (role === UserRole.SUPERVISOR && !managerId) {
       toast.error("Supervisor must be assigned to a manager");
       return;
@@ -95,6 +100,43 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
       setIsSubmitting(false);
     }
   };
+
+  const getDialogDescription = () => {
+    switch (currentUser.role) {
+      case UserRole.SUPER_ADMIN:
+        return "As a super admin, you can add managers, supervisors, or team members.";
+      case UserRole.MANAGER:
+        return "As a manager, you can add supervisors or team members.";
+      case UserRole.SUPERVISOR:
+        return "As a supervisor, you can add team members.";
+      default:
+        return "Add a new member to your team.";
+    }
+  };
+
+  const getAvailableRoles = () => {
+    switch (currentUser.role) {
+      case UserRole.SUPER_ADMIN:
+        return [
+          { value: UserRole.MANAGER, label: "Manager" },
+          { value: UserRole.SUPERVISOR, label: "Supervisor" },
+          { value: UserRole.MEMBER, label: "Team Member" }
+        ];
+      case UserRole.MANAGER:
+        return [
+          { value: UserRole.SUPERVISOR, label: "Supervisor" },
+          { value: UserRole.MEMBER, label: "Team Member" }
+        ];
+      case UserRole.SUPERVISOR:
+        return [
+          { value: UserRole.MEMBER, label: "Team Member" }
+        ];
+      default:
+        return [
+          { value: UserRole.MEMBER, label: "Team Member" }
+        ];
+    }
+  };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,9 +144,7 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
         <DialogHeader>
           <DialogTitle>Add Team Member</DialogTitle>
           <DialogDescription>
-            Add a new member to your team. {currentUser.role === UserRole.MANAGER 
-              ? "As a manager, you can add supervisors or team members." 
-              : "As a supervisor, you can add team members."}
+            {getDialogDescription()}
           </DialogDescription>
         </DialogHeader>
         
@@ -140,15 +180,16 @@ export function TeamMemberForm({ open, onOpenChange, onSuccess }: TeamMemberForm
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                {currentUser.role === UserRole.MANAGER && (
-                  <SelectItem value={UserRole.SUPERVISOR}>Supervisor</SelectItem>
-                )}
-                <SelectItem value={UserRole.MEMBER}>Team Member</SelectItem>
+                {getAvailableRoles().map((roleOption) => (
+                  <SelectItem key={roleOption.value} value={roleOption.value}>
+                    {roleOption.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           
-          {role === UserRole.MEMBER && currentUser.role === UserRole.MANAGER && (
+          {role === UserRole.MEMBER && (currentUser.role === UserRole.MANAGER || currentUser.role === UserRole.SUPER_ADMIN) && (
             <div className="space-y-2">
               <Label htmlFor="reportingTo">Reports To</Label>
               <Select 

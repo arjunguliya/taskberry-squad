@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
-import { addTeamMember } from "@/lib/dataService";
+import { register } from "@/lib/api";
 import { UserRole } from "@/lib/types";
 
 export function SignupForm() {
@@ -18,7 +18,7 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -35,26 +35,26 @@ export function SignupForm() {
       return;
     }
 
-    // Create new user
-    setTimeout(() => {
-      try {
-        // Store the user with their password
-        const newUser = addTeamMember({
-          name,
-          email,
-          role: UserRole.MEMBER, // Default role for new users
-          password, // Store the password for authentication
-        });
+    try {
+      // Register the user via API
+      const response = await register({
+        name,
+        email,
+        password,
+        role: UserRole.MEMBER // Default role for new users
+      });
 
-        toast.success(`Account created successfully! Welcome, ${newUser.name}!`);
-        navigate("/login");
-      } catch (error) {
-        toast.error("Failed to create account. Please try again.");
-        console.error("Signup error:", error);
-      } finally {
-        setLoading(false);
-      }
-    }, 1000);
+      toast.success(`Account created successfully! Welcome, ${name}!`);
+      
+      // Store the token and redirect to dashboard
+      localStorage.setItem('token', response.token);
+      navigate("/dashboard");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create account. Please try again.");
+      console.error("Signup error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
