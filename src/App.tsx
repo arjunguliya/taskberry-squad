@@ -15,6 +15,7 @@ import Team from "./pages/Team";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import TeamMembersManager from './components/TeamMembersManager';
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/team" element={<Team />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/admin/team-members" element={<TeamMembersManager currentUser={currentUser} />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
