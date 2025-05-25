@@ -5,7 +5,8 @@ import './TeamMembersManager.css';
 
 // Define types
 interface User {
-  id: string;
+  id?: string;        // Made optional
+  _id?: string;       // Added MongoDB _id
   name: string;
   email: string;
   role: 'super_admin' | 'manager' | 'supervisor' | 'member' | 'Super_admin';
