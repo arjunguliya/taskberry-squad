@@ -71,8 +71,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentUser }) => {
     },
   ];
 
-  const isSuperAdmin = currentUser?.role === 'super_admin';
-
+  const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'Super_admin';
+  
   return (
     <div className="flex h-full w-64 flex-col bg-white shadow-lg">
       {/* Logo/Brand */}
