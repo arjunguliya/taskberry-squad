@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -36,6 +35,9 @@ export function SignupForm() {
     }
 
     try {
+      // Clear any existing session first
+      localStorage.removeItem('token');
+      
       // Register the user via API
       const response = await register({
         name,
@@ -46,9 +48,11 @@ export function SignupForm() {
 
       toast.success(`Account created successfully! Welcome, ${name}!`);
       
-      // Store the token and redirect to dashboard
+      // Store the new user's token and redirect to dashboard
       localStorage.setItem('token', response.token);
-      navigate("/dashboard");
+      
+      // Force a page reload to ensure the new user's session is loaded
+      window.location.href = "/dashboard";
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create account. Please try again.");
       console.error("Signup error:", error);
