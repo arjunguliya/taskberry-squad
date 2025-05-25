@@ -23,11 +23,13 @@ export default function Login() {
           </p>
         </div>
         <LoginForm />
-        
+
+        (/*
         <div className="mt-8 text-center text-sm text-muted-foreground">
-         // <p>Demo credentials (for testing)</p>
-         // <p className="mt-1">Email: sam@example.com | Password: password</p>
+          <p>Demo credentials (for testing)</p>
+          <p className="mt-1">Email: sam@example.com | Password: password</p>
         </div> 
+        */)
       </div>
     </div>
   );
