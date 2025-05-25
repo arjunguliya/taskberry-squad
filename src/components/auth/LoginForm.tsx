@@ -32,8 +32,17 @@ export function LoginForm() {
       const user = authenticate(email, password);
       
       if (user) {
-        // Generate a mock token for development
-        const mockToken = `mock-token-${Date.now()}-${user.id}`;
+        // Generate a proper mock JWT token for development
+        const mockPayload = {
+          userId: user.id,
+          user: {
+            id: user.id,
+            role: user.role
+          }
+        };
+        
+        // Create a simple mock JWT (for development only)
+        const mockToken = `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.${btoa(JSON.stringify(mockPayload))}.mock-signature`;
         
         // Save token and user data to localStorage
         localStorage.setItem('token', mockToken);
