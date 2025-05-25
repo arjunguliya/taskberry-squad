@@ -139,7 +139,7 @@ export function AppLayout() {
         </div>
       )}
       <main className={`flex-1 ${isMobile ? 'pt-16' : ''}`}>
-        <div className="px-4 py-6 max-w-7xl mx-auto w-full">
+        <div className="h-full px-6 py-6">
           <Outlet context={{ currentUser }} />
         </div>
       </main>
