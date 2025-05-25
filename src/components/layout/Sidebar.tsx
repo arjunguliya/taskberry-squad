@@ -1,4 +1,3 @@
-// src/components/layout/Sidebar.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -11,6 +10,10 @@ import {
   UserCog, // Add this icon for team management
   Shield // Add this icon for admin badge
 } from 'lucide-react';
+
+console.log('Current User in Sidebar:', currentUser);
+console.log('User Role:', currentUser?.role);
+console.log('Is Super Admin:', currentUser?.role === 'super_admin');
 
 interface SidebarProps {
   currentUser?: {
