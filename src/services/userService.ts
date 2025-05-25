@@ -44,7 +44,7 @@ class UserService {
     // Get the API base URL from your existing configuration
     const API_BASE_URL = process.env.REACT_APP_API_URL || 
                         process.env.VITE_API_URL || 
-                        'https://taskmaster.xstreamapps.in/api';
+                        'https://taskberry-backend.onrender.com/api';
 
     const response = await fetch(`${API_BASE_URL}${url}`, defaultOptions);
     
