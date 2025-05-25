@@ -1,4 +1,3 @@
-
 import { User, Task, Report } from './types';
 
 // Base API URL - change this to your production URL when deploying
@@ -95,6 +94,10 @@ export const updateUser = async (userId: string, userData: Partial<User>) => {
 
 export const updateUserPassword = async (email: string, newPassword: string) => {
   return apiRequest<{ success: boolean }>(`/users/password`, 'PUT', { email, newPassword });
+};
+
+export const deleteUser = async (userId: string) => {
+  return apiRequest<{ success: boolean }>(`/users/${userId}`, 'DELETE');
 };
 
 // Tasks API calls

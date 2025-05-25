@@ -39,6 +39,10 @@ export default function Team() {
   const handleTeamMemberSuccess = () => {
     setRefreshKey(prev => prev + 1);
   };
+
+  const handleMemberDeleted = () => {
+    setRefreshKey(prev => prev + 1);
+  };
   
   const toggleSupervisor = (supervisorId: string) => {
     setExpandedSupervisors(prev => ({
