@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import userService from '../services/userService';
+import UserService from '../services/userService';
 import './TeamMembersManager.css';
 
 // Define types
@@ -47,7 +47,7 @@ const TeamMembersManager: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const userData = await userService.getAllUsers();
+      const userData = await UserService.getAllUsers();
       setUsers(userData);
       setError('');
     } catch (err: any) {
@@ -71,7 +71,7 @@ const TeamMembersManager: React.FC = () => {
 
     try {
       setDeleting(true);
-      await userService.deleteUser(deleteConfirm.id);
+      await UserService.deleteUser(deleteConfirm.id);
       
       // Remove user from local state
       setUsers(users.filter(user => user.id !== deleteConfirm.id));
@@ -90,7 +90,7 @@ const TeamMembersManager: React.FC = () => {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      await userService.updateUserRole(userId, newRole);
+      await UserService.updateUserRole(userId, newRole);
       
       // Update local state
       setUsers(users.map(user => 
