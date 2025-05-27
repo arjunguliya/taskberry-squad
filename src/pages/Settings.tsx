@@ -2,7 +2,6 @@
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { SecuritySettings } from "@/components/settings/SecuritySettings";
-import { EmailSettings } from "@/components/settings/EmailSettings";
 
 export default function Settings() {
   return (
@@ -20,7 +19,6 @@ export default function Settings() {
           <NotificationSettings />
           <SecuritySettings />
         </div>
-        <EmailSettings />
       </div>
     </div>
   );
