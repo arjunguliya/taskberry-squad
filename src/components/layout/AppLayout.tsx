@@ -12,6 +12,47 @@ import { Menu } from "lucide-react";
 import { getCurrentUser } from "@/lib/dataService";
 import { User } from "@/lib/types";
 
+// Temporary debug function - REMOVE AFTER TESTING
+const debugCurrentUser = () => {
+  console.log('=== DEBUGGING getCurrentUser ===');
+  
+  try {
+    const userData = localStorage.getItem('user');
+    console.log('1. Raw localStorage user:', userData);
+    
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      console.log('2. Parsed user:', parsedUser);
+      console.log('3. User type:', typeof parsedUser);
+      console.log('4. User keys:', Object.keys(parsedUser));
+      
+      // Check each field individually
+      console.log('5. Field analysis:');
+      console.log('   - id:', parsedUser.id, typeof parsedUser.id);
+      console.log('   - name:', parsedUser.name, typeof parsedUser.name);
+      console.log('   - email:', parsedUser.email, typeof parsedUser.email);
+      console.log('   - role:', parsedUser.role, typeof parsedUser.role);
+      
+      // Test getCurrentUser function
+      console.log('6. Testing getCurrentUser function...');
+      const userFromFunction = getCurrentUser();
+      console.log('7. getCurrentUser result:', userFromFunction);
+      console.log('8. getCurrentUser type:', typeof userFromFunction);
+      
+      if (userFromFunction) {
+        console.log('9. getCurrentUser keys:', Object.keys(userFromFunction));
+      } else {
+        console.log('9. getCurrentUser returned null/undefined');
+      }
+    }
+  } catch (error) {
+    console.error('Debug error:', error);
+    console.error('Error stack:', error.stack);
+  }
+  
+  console.log('=== END DEBUG ===');
+};
+
 export function AppLayout() {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,6 +75,9 @@ export function AppLayout() {
         
         console.log('AppLayout: Loading current user...');
         
+        // Run debug function
+        debugCurrentUser();
+        
         // Check if token exists
         const token = localStorage.getItem('token');
         if (!token) {
@@ -44,27 +88,45 @@ export function AppLayout() {
 
         console.log('AppLayout: Token found, getting user data');
         
-        // Use the dataService getCurrentUser function
-        const user = getCurrentUser();
+        // BYPASS TEST - Use direct localStorage instead of getCurrentUser
+        const rawUserData = localStorage.getItem('user');
+        console.log('AppLayout: Raw user data:', rawUserData);
         
-        if (user) {
-          console.log('AppLayout: User loaded successfully:', {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            status: user.status
-          });
-          
-          // Handle missing status field (for backward compatibility)
-          const userWithStatus = {
-            ...user,
-            status: user.status || 'active' // Default to active if status is missing
-          };
-          
-          setCurrentUser(userWithStatus);
+        if (rawUserData) {
+          try {
+            const user = JSON.parse(rawUserData);
+            console.log('AppLayout: Parsed user:', user);
+            
+            // Validate user structure
+            if (user && user.id && user.name && user.email && user.role) {
+              // Create a completely safe user object
+              const safeUser: User = {
+                id: String(user.id),
+                name: String(user.name),
+                email: String(user.email),
+                role: String(user.role),
+                avatarUrl: user.avatarUrl ? String(user.avatarUrl) : '',
+                supervisorId: user.supervisorId ? String(user.supervisorId) : undefined,
+                managerId: user.managerId ? String(user.managerId) : undefined,
+                status: user.status ? String(user.status) : 'active'
+              };
+              
+              console.log('AppLayout: Created safe user:', safeUser);
+              console.log('AppLayout: Safe user name type:', typeof safeUser.name);
+              console.log('AppLayout: Safe user role type:', typeof safeUser.role);
+              
+              setCurrentUser(safeUser);
+              console.log('AppLayout: User set in state');
+            } else {
+              console.error('AppLayout: Invalid user structure:', user);
+              setError('Invalid user data structure');
+            }
+          } catch (parseError) {
+            console.error('AppLayout: Parse error:', parseError);
+            setError('Failed to parse user data');
+          }
         } else {
-          console.log('AppLayout: No user data found');
+          console.log('AppLayout: No user data in localStorage');
           setError('No user data found');
         }
         
@@ -83,11 +145,15 @@ export function AppLayout() {
     loadCurrentUser();
   }, []);
 
-  // Debug logging
+  // Debug logging with more detail
   useEffect(() => {
-    console.log('AppLayout - Current User:', currentUser);
-    console.log('AppLayout - User Role:', currentUser?.role);
-    console.log('AppLayout - User Status:', currentUser?.status);
+    console.log('=== AppLayout State Update ===');
+    console.log('Current User State:', currentUser);
+    console.log('User Role:', currentUser?.role);
+    console.log('User Status:', currentUser?.status);
+    console.log('User Name:', currentUser?.name);
+    console.log('User Name Type:', typeof currentUser?.name);
+    console.log('=== End State Update ===');
   }, [currentUser]);
 
   // Loading state
