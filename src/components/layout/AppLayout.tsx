@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -9,49 +9,7 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
-import { getCurrentUser } from "@/lib/dataService";
 import { User } from "@/lib/types";
-
-// Temporary debug function - REMOVE AFTER TESTING
-const debugCurrentUser = () => {
-  console.log('=== DEBUGGING getCurrentUser ===');
-  
-  try {
-    const userData = localStorage.getItem('user');
-    console.log('1. Raw localStorage user:', userData);
-    
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      console.log('2. Parsed user:', parsedUser);
-      console.log('3. User type:', typeof parsedUser);
-      console.log('4. User keys:', Object.keys(parsedUser));
-      
-      // Check each field individually
-      console.log('5. Field analysis:');
-      console.log('   - id:', parsedUser.id, typeof parsedUser.id);
-      console.log('   - name:', parsedUser.name, typeof parsedUser.name);
-      console.log('   - email:', parsedUser.email, typeof parsedUser.email);
-      console.log('   - role:', parsedUser.role, typeof parsedUser.role);
-      
-      // Test getCurrentUser function
-      console.log('6. Testing getCurrentUser function...');
-      const userFromFunction = getCurrentUser();
-      console.log('7. getCurrentUser result:', userFromFunction);
-      console.log('8. getCurrentUser type:', typeof userFromFunction);
-      
-      if (userFromFunction) {
-        console.log('9. getCurrentUser keys:', Object.keys(userFromFunction));
-      } else {
-        console.log('9. getCurrentUser returned null/undefined');
-      }
-    }
-  } catch (error) {
-    console.error('Debug error:', error);
-    console.error('Error stack:', error.stack);
-  }
-  
-  console.log('=== END DEBUG ===');
-};
 
 export function AppLayout() {
   const isMobile = useIsMobile();
@@ -66,84 +24,80 @@ export function AppLayout() {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
-  // Get current user data
-  useEffect(() => {
-    const loadCurrentUser = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        console.log('AppLayout: Loading current user...');
-        
-        // Run debug function
-        debugCurrentUser();
-        
-        // Check if token exists
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.log('AppLayout: No token found, redirecting to login');
-          setLoading(false);
-          return;
-        }
-
-        console.log('AppLayout: Token found, getting user data');
-        
-        // BYPASS TEST - Use direct localStorage instead of getCurrentUser
-        const rawUserData = localStorage.getItem('user');
-        console.log('AppLayout: Raw user data:', rawUserData);
-        
-        if (rawUserData) {
-          try {
-            const user = JSON.parse(rawUserData);
-            console.log('AppLayout: Parsed user:', user);
-            
-            // Validate user structure
-            if (user && user.id && user.name && user.email && user.role) {
-              // Create a completely safe user object
-              const safeUser: User = {
-                id: String(user.id),
-                name: String(user.name),
-                email: String(user.email),
-                role: String(user.role),
-                avatarUrl: user.avatarUrl ? String(user.avatarUrl) : '',
-                supervisorId: user.supervisorId ? String(user.supervisorId) : undefined,
-                managerId: user.managerId ? String(user.managerId) : undefined,
-                status: user.status ? String(user.status) : 'active'
-              };
-              
-              console.log('AppLayout: Created safe user:', safeUser);
-              console.log('AppLayout: Safe user name type:', typeof safeUser.name);
-              console.log('AppLayout: Safe user role type:', typeof safeUser.role);
-              
-              setCurrentUser(safeUser);
-              console.log('AppLayout: User set in state');
-            } else {
-              console.error('AppLayout: Invalid user structure:', user);
-              setError('Invalid user data structure');
-            }
-          } catch (parseError) {
-            console.error('AppLayout: Parse error:', parseError);
-            setError('Failed to parse user data');
-          }
-        } else {
-          console.log('AppLayout: No user data in localStorage');
-          setError('No user data found');
-        }
-        
-      } catch (error) {
-        console.error('AppLayout: Error loading user:', error);
-        setError('Failed to load user data');
-        
-        // Clear invalid data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      } finally {
+  // Stable user loading function
+  const loadCurrentUser = useCallback(() => {
+    try {
+      console.log('AppLayout: Loading current user...');
+      
+      // Check if token exists
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('AppLayout: No token found');
+        setError('No authentication token');
         setLoading(false);
+        return;
       }
-    };
 
-    loadCurrentUser();
+      // Get user data directly from localStorage
+      const rawUserData = localStorage.getItem('user');
+      console.log('AppLayout: Raw user data:', rawUserData);
+      
+      if (!rawUserData) {
+        console.log('AppLayout: No user data in localStorage');
+        setError('No user data found');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const user = JSON.parse(rawUserData);
+        console.log('AppLayout: Parsed user:', user);
+        
+        // Validate user structure
+        if (user && user.id && user.name && user.email && user.role) {
+          // Create a completely safe user object
+          const safeUser: User = {
+            id: String(user.id),
+            name: String(user.name),
+            email: String(user.email),
+            role: String(user.role),
+            avatarUrl: user.avatarUrl ? String(user.avatarUrl) : '',
+            supervisorId: user.supervisorId ? String(user.supervisorId) : undefined,
+            managerId: user.managerId ? String(user.managerId) : undefined,
+            status: user.status ? String(user.status) : 'active'
+          };
+          
+          console.log('AppLayout: Setting safe user:', safeUser);
+          
+          // Use functional update to ensure the state is set properly
+          setCurrentUser(prevUser => {
+            console.log('AppLayout: State update - previous user:', prevUser);
+            console.log('AppLayout: State update - new user:', safeUser);
+            return safeUser;
+          });
+          
+          setError(null);
+        } else {
+          console.error('AppLayout: Invalid user structure:', user);
+          setError('Invalid user data structure');
+        }
+      } catch (parseError) {
+        console.error('AppLayout: Parse error:', parseError);
+        setError('Failed to parse user data');
+      }
+      
+    } catch (error) {
+      console.error('AppLayout: Error loading user:', error);
+      setError('Failed to load user data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Load user on mount
+  useEffect(() => {
+    loadCurrentUser();
+  }, [loadCurrentUser]);
 
   // Debug logging with more detail
   useEffect(() => {
@@ -153,8 +107,10 @@ export function AppLayout() {
     console.log('User Status:', currentUser?.status);
     console.log('User Name:', currentUser?.name);
     console.log('User Name Type:', typeof currentUser?.name);
+    console.log('Loading:', loading);
+    console.log('Error:', error);
     console.log('=== End State Update ===');
-  }, [currentUser]);
+  }, [currentUser, loading, error]);
 
   // Loading state
   if (loading) {
