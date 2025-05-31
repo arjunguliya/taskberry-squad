@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, Navigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { 
@@ -9,23 +9,15 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
-
-// Define user type
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'super_admin' | 'manager' | 'supervisor' | 'member' | 'Super_admin';
-  avatarUrl?: string;
-  supervisorId?: string;
-  managerId?: string;
-}
+import { getCurrentUser } from "@/lib/dataService";
+import { User } from "@/lib/types";
 
 export function AppLayout() {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const location = useLocation();
 
   // Close mobile drawer when route changes
@@ -35,111 +27,112 @@ export function AppLayout() {
 
   // Get current user data
   useEffect(() => {
-    const getCurrentUser = async () => {
+    const loadCurrentUser = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('AppLayout: Loading current user...');
+        
+        // Check if token exists
         const token = localStorage.getItem('token');
         if (!token) {
-          console.log('No token found');
+          console.log('AppLayout: No token found, redirecting to login');
           setLoading(false);
           return;
         }
 
-        console.log('Token found:', token);
-
-        // Try to get user from localStorage first
-        const userData = localStorage.getItem('user');
-        if (userData) {
-          try {
-            const user = JSON.parse(userData);
-            console.log('User from localStorage:', user);
-            setCurrentUser(user);
-            setLoading(false);
-            return;
-          } catch (parseError) {
-            console.error('Error parsing stored user data:', parseError);
-            localStorage.removeItem('user');
-          }
-        }
-
-        // If no stored user data, try to fetch from API
-        console.log('Fetching user from API...');
+        console.log('AppLayout: Token found, getting user data');
         
-        // Use the same API URL pattern as your login
-        const API_BASE_URL = window.location.origin.includes('localhost') 
-          ? 'http://localhost:5000/api'
-          : 'https://taskmaster.xstreamapps.in/api';
-
-        console.log('API Base URL:', API_BASE_URL);
-
-        const response = await fetch(`${API_BASE_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        console.log('API Response status:', response.status);
-
-        if (response.ok) {
-          const user = await response.json();
-          console.log('User from API:', user);
-          setCurrentUser(user);
-          // Cache user data
-          localStorage.setItem('user', JSON.stringify(user));
-        } else {
-          console.log('API request failed, using mock data for development');
-          // For development - if API fails, create mock super admin
-          const mockUser: User = {
-            id: 'mock-admin',
-            name: 'System Admin',
-            email: 'admin@example.com',
-            role: 'super_admin'
+        // Use the dataService getCurrentUser function
+        const user = getCurrentUser();
+        
+        if (user) {
+          console.log('AppLayout: User loaded successfully:', {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            status: user.status
+          });
+          
+          // Handle missing status field (for backward compatibility)
+          const userWithStatus = {
+            ...user,
+            status: user.status || 'active' // Default to active if status is missing
           };
-          console.log('Using mock user:', mockUser);
-          setCurrentUser(mockUser);
-          localStorage.setItem('user', JSON.stringify(mockUser));
+          
+          setCurrentUser(userWithStatus);
+        } else {
+          console.log('AppLayout: No user data found');
+          setError('No user data found');
         }
-      } catch (error) {
-        console.error('Error in getCurrentUser:', error);
         
-        // Fallback - check if we can extract user info from token
-        const token = localStorage.getItem('token');
-        if (token) {
-          try {
-            // For development, create a mock super admin user
-            const mockUser: User = {
-              id: 'admin-user',
-              name: 'System Admin',
-              email: 'admin@example.com',
-              role: 'super_admin'
-            };
-            console.log('Using fallback mock user:', mockUser);
-            setCurrentUser(mockUser);
-            localStorage.setItem('user', JSON.stringify(mockUser));
-          } catch (fallbackError) {
-            console.error('Fallback also failed:', fallbackError);
-          }
-        }
+      } catch (error) {
+        console.error('AppLayout: Error loading user:', error);
+        setError('Failed to load user data');
+        
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
       } finally {
         setLoading(false);
       }
     };
 
-    getCurrentUser();
+    loadCurrentUser();
   }, []);
 
-  // Debug logging (remove after testing)
+  // Debug logging
   useEffect(() => {
     console.log('AppLayout - Current User:', currentUser);
     console.log('AppLayout - User Role:', currentUser?.role);
+    console.log('AppLayout - User Status:', currentUser?.status);
   }, [currentUser]);
 
+  // Loading state
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state or no token - redirect to login
+  if (error || !localStorage.getItem('token')) {
+    console.log('AppLayout: Redirecting to login due to error or missing token');
+    return <Navigate to="/login" replace />;
+  }
+
+  // No user data - redirect to login
+  if (!currentUser) {
+    console.log('AppLayout: No current user, redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
+
+  // Check if user needs approval
+  if (currentUser.status === 'pending_approval') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md mx-auto p-6 bg-card rounded-lg shadow-lg">
+          <h2 className="text-xl font-semibold mb-4">Account Pending Approval</h2>
+          <p className="text-muted-foreground mb-4">
+            Your account is pending approval by an administrator. 
+            You will receive an email once your account is approved.
+          </p>
+          <Button 
+            onClick={() => {
+              localStorage.clear();
+              window.location.href = '/login';
+            }}
+            variant="outline"
+          >
+            Back to Login
+          </Button>
         </div>
       </div>
     );
@@ -173,7 +166,7 @@ export function AppLayout() {
                 (e.target as HTMLImageElement).src = "/placeholder.svg";
               }}
             />
-            <h1 className="text-lg font-semibold">Chatzy TaskMaster</h1>
+            <h1 className="text-lg font-semibold">TaskMaster</h1>
           </div>
         </div>
       )}
