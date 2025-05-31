@@ -78,13 +78,17 @@ const refreshUserData = async () => {
 
 export const getAllUsers = async (): Promise<User[]> => {
   try {
+    console.log('Fetching all users...');
     const response = await fetch(`${API_BASE_URL}/api/users`, {
       headers: getAuthHeaders()
     });
 
     if (response.ok) {
-      return await response.json();
+      const data = await response.json();
+      console.log('All users API response:', data);
+      return data;
     } else {
+      console.error('Failed to fetch all users:', response.status, response.statusText);
       throw new Error('Failed to fetch users');
     }
   } catch (error) {
@@ -190,6 +194,88 @@ export const logout = (): void => {
   localStorage.removeItem('user');
   toast.info('Logged out successfully');
   window.location.href = '/login';
+};
+
+// PENDING USERS (for approval system)
+export const getPendingUsers = async (): Promise<User[]> => {
+  try {
+    console.log('Fetching pending users...');
+    const response = await fetch(`${API_BASE_URL}/api/users/pending`, {
+      headers: getAuthHeaders()
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Pending users API response:', data);
+      return Array.isArray(data) ? data : [];
+    } else {
+      console.error('Failed to fetch pending users:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching pending users:', error);
+    return [];
+  }
+};
+
+export const approveUser = async (userId: string, role: string, supervisorId?: string, managerId?: string): Promise<boolean> => {
+  try {
+    console.log(`Approving user ${userId} with role ${role}`);
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}/approve`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ 
+        role, 
+        supervisorId: supervisorId || null, 
+        managerId: managerId || null 
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('User approved:', data);
+      toast.success('User approved successfully');
+      return true;
+    } else {
+      const error = await response.json();
+      console.error('Failed to approve user:', error);
+      toast.error(error.message || 'Failed to approve user');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error approving user:', error);
+    toast.error('Failed to approve user');
+    return false;
+  }
+};
+
+export const rejectUser = async (userId: string, reason?: string): Promise<boolean> => {
+  try {
+    console.log(`Rejecting user ${userId}`);
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}/reject`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ reason: reason || 'No reason provided' })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('User rejected:', data);
+      toast.success('User rejected successfully');
+      return true;
+    } else {
+      const error = await response.json();
+      console.error('Failed to reject user:', error);
+      toast.error(error.message || 'Failed to reject user');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error rejecting user:', error);
+    toast.error('Failed to reject user');
+    return false;
+  }
 };
 
 // TASK FUNCTIONS (Mock for now - implement when you have task backend routes)
@@ -316,6 +402,7 @@ export const getReports = (): Report[] => {
 // UTILITY FUNCTIONS
 export const registerUser = async (name: string, email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
   try {
+    console.log(`Attempting to register user: ${email}`);
     const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: {
@@ -325,6 +412,7 @@ export const registerUser = async (name: string, email: string, password: string
     });
 
     const data = await response.json();
+    console.log('Registration response:', data);
 
     if (response.ok) {
       // Store token and user data if registration is successful
@@ -335,7 +423,7 @@ export const registerUser = async (name: string, email: string, password: string
 
       return {
         success: true,
-        message: data.user?.message || 'Registration successful',
+        message: data.message || 'Registration successful',
         user: data.user
       };
     } else {
@@ -350,70 +438,6 @@ export const registerUser = async (name: string, email: string, password: string
       success: false,
       message: 'Network error. Please try again.'
     };
-  }
-};
-
-// PENDING USERS (for approval system)
-export const getPendingUsers = async (): Promise<User[]> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/pending-users`, {
-      headers: getAuthHeaders()
-    });
-
-    if (response.ok) {
-      return await response.json();
-    } else {
-      return [];
-    }
-  } catch (error) {
-    console.error('Error fetching pending users:', error);
-    return [];
-  }
-};
-
-export const approveUser = async (userId: string, role: string, supervisorId?: string, managerId?: string): Promise<boolean> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/approve-user`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ userId, role, supervisorId, managerId })
-    });
-
-    if (response.ok) {
-      toast.success('User approved successfully');
-      return true;
-    } else {
-      const error = await response.json();
-      toast.error(error.message || 'Failed to approve user');
-      return false;
-    }
-  } catch (error) {
-    console.error('Error approving user:', error);
-    toast.error('Failed to approve user');
-    return false;
-  }
-};
-
-export const rejectUser = async (userId: string, reason?: string): Promise<boolean> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/reject-user`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ userId, reason })
-    });
-
-    if (response.ok) {
-      toast.success('User rejected successfully');
-      return true;
-    } else {
-      const error = await response.json();
-      toast.error(error.message || 'Failed to reject user');
-      return false;
-    }
-  } catch (error) {
-    console.error('Error rejecting user:', error);
-    toast.error('Failed to reject user');
-    return false;
   }
 };
 
