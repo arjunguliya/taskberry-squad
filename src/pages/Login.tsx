@@ -19,7 +19,7 @@ export default function Login() {
           </div>
           <h1 className="text-3xl font-bold mb-2">Chatzy TaskMaster</h1>
           <p className="text-muted-foreground">
-            Team management and task tracking made simple
+            Team Management and Task Tracking made simple
           </p>
         </div>
         <LoginForm />
