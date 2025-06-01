@@ -675,6 +675,8 @@ export default function TeamMembersManager() {
         </TabsContent>
       </Tabs>
 
+      {/* All Dialog Components */}
+      
       {/* Approval Dialog */}
       <Dialog open={approvalDialog.open} onOpenChange={(open) => 
         setApprovalDialog(prev => ({ ...prev, open }))
