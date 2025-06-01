@@ -1,5 +1,3 @@
-// Updated: [current timestamp]
-
 import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -863,7 +861,7 @@ export default function TeamMembersManager() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">User Email</Label>
+                  <Label className="text-sm font-medium">User ID</Label>
                   <p className="text-sm text-muted-foreground">{viewDetailsDialog.user.email}</p>
                 </div>
                 <div>
