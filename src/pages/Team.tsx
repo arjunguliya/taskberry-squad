@@ -6,6 +6,7 @@ import { Users, UserPlus, Mail, Phone, MapPin } from "lucide-react";
 import { User } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { getAllUsers } from "@/lib/dataService"; // Import the API function
 
 // Context type for user data from AppLayout
 interface AppLayoutContext {
@@ -33,10 +34,8 @@ export default function Team() {
           return;
         }
 
-        // For now, use empty array since the backend doesn't have team endpoints yet
-        // TODO: Replace with actual API call when backend is ready
-        // const members = await getTeamMembers(currentUser.id);
-        const members: User[] = [];
+        // FIXED: Use actual API call to get all users
+        const members = await getAllUsers();
         
         // Ensure we always have an array
         const safeMembers = Array.isArray(members) ? members : [];
