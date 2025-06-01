@@ -200,7 +200,7 @@ export const ProfileSettings = () => {
             <Label htmlFor="userId">User ID</Label>
             <Input
               id="userId"
-              value={currentUser.id}
+              value={currentUser.email}
               readOnly
               className="bg-muted cursor-not-allowed font-mono text-sm"
               title="Your unique user identifier"
