@@ -351,6 +351,52 @@ export default function TeamMembersManager() {
     }
   };
 
+  // Helper functions for resolving user information
+  const getApproverInfo = (approvedById: string): string => {
+    // First check if it's the current user
+    const currentUserId = currentUser.id || currentUser._id;
+    if (approvedById === currentUserId) {
+      return `${currentUser.name} (${currentUser.email})`;
+    }
+    
+    // Look for the approver in the active users list
+    const approver = activeUsers.find(user => 
+      (user.id || user._id) === approvedById
+    );
+    
+    if (approver) {
+      return `${approver.name} (${approver.email})`;
+    }
+    
+    // If not found, it might be a super admin not in the active list
+    // Return a generic message
+    return 'Super Administrator';
+  };
+
+  const getManagerInfo = (managerId: string): string => {
+    const manager = activeUsers.find(user => 
+      (user.id || user._id) === managerId
+    );
+    
+    if (manager) {
+      return `${manager.name} (${manager.email})`;
+    }
+    
+    return 'Manager not found';
+  };
+
+  const getSupervisorInfo = (supervisorId: string): string => {
+    const supervisor = activeUsers.find(user => 
+      (user.id || user._id) === supervisorId
+    );
+    
+    if (supervisor) {
+      return `${supervisor.name} (${supervisor.email})`;
+    }
+    
+    return 'Supervisor not found';
+  };
+
   // Check if user is super admin
   if (currentUser?.role !== 'super_admin') {
     return (
@@ -488,6 +534,127 @@ export default function TeamMembersManager() {
                     return (
                       <div key={userId} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={viewDetailsDialog.user.avatarUrl} alt={viewDetailsDialog.user.name} />
+                  <AvatarFallback className="text-lg">{getInitials(viewDetailsDialog.user.name)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-xl font-semibold">{viewDetailsDialog.user.name}</h3>
+                  <p className="text-muted-foreground">{viewDetailsDialog.user.email}</p>
+                  <Badge variant="secondary" className="mt-1">
+                    {formatRole(viewDetailsDialog.user.role)}
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">User Email</Label>
+                  <p className="text-sm text-muted-foreground">{viewDetailsDialog.user.email}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <p className="text-sm text-muted-foreground capitalize">{viewDetailsDialog.user.status || 'active'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Member Since</Label>
+                  <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.createdAt)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Last Updated</Label>
+                  <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.updatedAt)}</p>
+                </div>
+                {viewDetailsDialog.user.approvedBy && (
+                  <div>
+                    <Label className="text-sm font-medium">Approved By</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {getApproverInfo(viewDetailsDialog.user.approvedBy)}
+                    </p>
+                  </div>
+                )}
+                {viewDetailsDialog.user.approvedAt && (
+                  <div>
+                    <Label className="text-sm font-medium">Approved On</Label>
+                    <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.approvedAt)}</p>
+                  </div>
+                )}
+              </div>
+              
+              {(viewDetailsDialog.user.supervisorId || viewDetailsDialog.user.managerId) && (
+                <div>
+                  <Label className="text-sm font-medium">Reporting Structure</Label>
+                  <div className="mt-2 space-y-2">
+                    {viewDetailsDialog.user.managerId && (
+                      <p className="text-sm text-muted-foreground">Manager: {getManagerInfo(viewDetailsDialog.user.managerId)}</p>
+                    )}
+                    {viewDetailsDialog.user.supervisorId && (
+                      <p className="text-sm text-muted-foreground">Supervisor: {getSupervisorInfo(viewDetailsDialog.user.supervisorId)}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setViewDetailsDialog({ open: false, user: null })}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog.open} onOpenChange={(open) => 
+        setDeleteDialog(prev => ({ ...prev, open }))
+      }>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-500" />
+              Delete User: {deleteDialog.user?.name}
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the user account and remove all associated data.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Warning:</strong> Deleting this user will:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Remove all their tasks and assignments</li>
+                <li>Remove them from any teams they manage or supervise</li>
+                <li>Delete their account permanently</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialog({ open: false, user: null })}
+              disabled={actionLoading !== null}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteUser}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading ? 'Deleting...' : 'Delete User'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}center gap-4">
                           <Avatar className="h-10 w-10">
                             <AvatarImage src={user.avatarUrl} alt={user.name} />
                             <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
@@ -797,123 +964,4 @@ export default function TeamMembersManager() {
           
           {viewDetailsDialog.user && (
             <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={viewDetailsDialog.user.avatarUrl} alt={viewDetailsDialog.user.name} />
-                  <AvatarFallback className="text-lg">{getInitials(viewDetailsDialog.user.name)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="text-xl font-semibold">{viewDetailsDialog.user.name}</h3>
-                  <p className="text-muted-foreground">{viewDetailsDialog.user.email}</p>
-                  <Badge variant="secondary" className="mt-1">
-                    {formatRole(viewDetailsDialog.user.role)}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">User ID</Label>
-                  <p className="text-sm text-muted-foreground">{viewDetailsDialog.user.id || viewDetailsDialog.user._id}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Status</Label>
-                  <p className="text-sm text-muted-foreground">{viewDetailsDialog.user.status || 'active'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Member Since</Label>
-                  <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.createdAt)}</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Last Updated</Label>
-                  <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.updatedAt)}</p>
-                </div>
-                {viewDetailsDialog.user.approvedBy && (
-                  <div>
-                    <Label className="text-sm font-medium">Approved By</Label>
-                    <p className="text-sm text-muted-foreground">{viewDetailsDialog.user.approvedBy}</p>
-                  </div>
-                )}
-                {viewDetailsDialog.user.approvedAt && (
-                  <div>
-                    <Label className="text-sm font-medium">Approved On</Label>
-                    <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.approvedAt)}</p>
-                  </div>
-                )}
-              </div>
-              
-              {(viewDetailsDialog.user.supervisorId || viewDetailsDialog.user.managerId) && (
-                <div>
-                  <Label className="text-sm font-medium">Reporting Structure</Label>
-                  <div className="mt-2 space-y-2">
-                    {viewDetailsDialog.user.managerId && (
-                      <p className="text-sm text-muted-foreground">Manager: {viewDetailsDialog.user.managerId}</p>
-                    )}
-                    {viewDetailsDialog.user.supervisorId && (
-                      <p className="text-sm text-muted-foreground">Supervisor: {viewDetailsDialog.user.supervisorId}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setViewDetailsDialog({ open: false, user: null })}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialog.open} onOpenChange={(open) => 
-        setDeleteDialog(prev => ({ ...prev, open }))
-      }>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-red-500" />
-              Delete User: {deleteDialog.user?.name}
-            </DialogTitle>
-            <DialogDescription>
-              This action cannot be undone. This will permanently delete the user account and remove all associated data.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Warning:</strong> Deleting this user will:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Remove all their tasks and assignments</li>
-                <li>Remove them from any teams they manage or supervise</li>
-                <li>Delete their account permanently</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
-
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteDialog({ open: false, user: null })}
-              disabled={actionLoading !== null}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleDeleteUser}
-              disabled={actionLoading !== null}
-            >
-              {actionLoading ? 'Deleting...' : 'Delete User'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+              <div className="flex items-
