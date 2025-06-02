@@ -6,7 +6,7 @@ import { Users, UserPlus, Mail, Phone, MapPin } from "lucide-react";
 import { User } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { getActiveUsers } from "@/lib/dataService"; // Import the new function
+import { getActiveUsers } from "@/lib/dataService.ts"; // Import the new function
 
 // Context type for user data from AppLayout
 interface AppLayoutContext {
