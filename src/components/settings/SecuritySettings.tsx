@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Shield, Key, Smartphone, LogOut } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { getCurrentUser } from "@/lib/dataService";
+import { getCurrentUser } from "@/lib/dataService.ts";
 
 export const SecuritySettings = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
