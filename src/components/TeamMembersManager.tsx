@@ -388,20 +388,18 @@ export default function TeamMembersManager() {
       return;
     }
 
-    // Only validate hierarchical assignments if role is actually changing
-    if (editRoleDialog.newRole !== editRoleDialog.user.role) {
-      if (editRoleDialog.newRole === 'member') {
-        if (!editRoleDialog.newSupervisorId || !editRoleDialog.newManagerId) {
-          toast.error('Members must have both a supervisor and manager assigned');
-          return;
-        }
+    // Always validate hierarchical assignments for member and supervisor roles
+    if (editRoleDialog.newRole === 'member') {
+      if (!editRoleDialog.newSupervisorId || !editRoleDialog.newManagerId) {
+        toast.error('Members must have both a supervisor and manager assigned');
+        return;
       }
+    }
 
-      if (editRoleDialog.newRole === 'supervisor') {
-        if (!editRoleDialog.newManagerId) {
-          toast.error('Supervisors must have a manager assigned');
-          return;
-        }
+    if (editRoleDialog.newRole === 'supervisor') {
+      if (!editRoleDialog.newManagerId) {
+        toast.error('Supervisors must have a manager assigned');
+        return;
       }
     }
 
@@ -421,7 +419,7 @@ export default function TeamMembersManager() {
       });
 
       if (response.ok) {
-        toast.success('Role updated successfully');
+        toast.success('Role and hierarchical assignments updated successfully');
         setEditRoleDialog({ open: false, user: null, newRole: '', newSupervisorId: '', newManagerId: '' });
         loadUsers();
       } else {
@@ -885,11 +883,13 @@ export default function TeamMembersManager() {
               </div>
 
               {/* Hierarchical Assignments for Role Change */}
-              {editRoleDialog.newRole && editRoleDialog.newRole !== editRoleDialog.user.role && (
+              {editRoleDialog.newRole && (editRoleDialog.newRole !== editRoleDialog.user.role || editRoleDialog.newRole === 'member' || editRoleDialog.newRole === 'supervisor') && (
                 <div className="space-y-4 border-t pt-4">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    <Label className="text-sm font-medium">Update Hierarchical Assignments</Label>
+                    <Label className="text-sm font-medium">
+                      {editRoleDialog.newRole === editRoleDialog.user.role ? 'Update Hierarchical Assignments' : 'Assign Hierarchical Structure'}
+                    </Label>
                   </div>
 
                   {/* Supervisor Assignment for Members */}
@@ -1025,11 +1025,11 @@ export default function TeamMembersManager() {
                 </div>
               )}
 
-              {/* Show message when no role change */}
-              {editRoleDialog.newRole === editRoleDialog.user.role && editRoleDialog.newRole && (
+              {/* Show message only when role doesn't change AND it's not member/supervisor */}
+              {editRoleDialog.newRole === editRoleDialog.user.role && editRoleDialog.newRole && editRoleDialog.newRole === 'manager' && (
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <p className="text-sm text-blue-700">
-                    ℹ️ No role change detected. Select a different role to update hierarchical assignments.
+                    ℹ️ No role change detected. Managers don't require hierarchical assignments.
                   </p>
                 </div>
               )}
@@ -1046,9 +1046,9 @@ export default function TeamMembersManager() {
             <Button 
               onClick={saveRoleChange}
               disabled={!editRoleDialog.newRole || 
-                editRoleDialog.newRole === editRoleDialog.user?.role ||
                 (editRoleDialog.newRole === 'member' && (!editRoleDialog.newSupervisorId || !editRoleDialog.newManagerId)) ||
-                (editRoleDialog.newRole === 'supervisor' && !editRoleDialog.newManagerId)
+                (editRoleDialog.newRole === 'supervisor' && !editRoleDialog.newManagerId) ||
+                (editRoleDialog.newRole === editRoleDialog.user?.role && editRoleDialog.newRole === 'manager')
               }
             >
               Update Role
