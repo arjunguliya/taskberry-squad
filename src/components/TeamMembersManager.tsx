@@ -28,7 +28,7 @@ import {
 import { User } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { getPendingUsers, approveUser, rejectUser, getAllUsers } from "@/lib/dataService";
+import { getPendingUsers, approveUser, rejectUser, getAllUsers } from "@/lib/dataService.ts";
 
 // Context type for user data from AppLayout
 interface AppLayoutContext {
