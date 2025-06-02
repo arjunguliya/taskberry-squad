@@ -10,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { Task, TaskStatus, User, UserRole } from "@/lib/types";
-import { addTask, updateTask, getCurrentUser, getAssignableUsers } from "@/lib/dataService";
+import { addTask, updateTask, getCurrentUser, getAssignableUsers } from "@/lib/dataService.ts";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
