@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Mail, ListTodo, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getCurrentUser } from "@/lib/dataService";
+import { getCurrentUser } from "@/lib/dataService.ts";
 import { deleteUser } from "@/lib/api";
 import { toast } from "sonner";
 import { useState } from "react";
