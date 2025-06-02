@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UserRole } from "@/lib/types";
-import { addTeamMember, getCurrentUser, getAllUsers } from "@/lib/dataService";
+import { addTeamMember, getCurrentUser, getAllUsers } from "@/lib/dataService.ts";
 import { toast } from "sonner";
 
 interface TeamMemberFormProps {
