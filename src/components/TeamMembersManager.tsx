@@ -403,46 +403,64 @@ export default function TeamMembersManager() {
     return 'Super Administrator';
   };
 
-  const getManagerInfo = (managerId: string): string => {
-    if (!managerId) return 'No manager assigned';
+  const getManagerInfo = (managerData: any): string => {
+    if (!managerData) return 'No manager assigned';
     
-    // First try to find in activeUsers
-    const manager = activeUsers.find(user => 
-      (user.id || user._id) === managerId
-    );
-    
-    if (manager) {
-      return `${manager.name} (${manager.email})`;
+    // Handle if managerData is a populated object
+    if (typeof managerData === 'object' && managerData.name) {
+      return `${managerData.name} (${managerData.email})`;
     }
     
-    // If not found in activeUsers, check if it's the current user
-    const currentUserId = currentUser.id || currentUser._id;
-    if (managerId === currentUserId) {
-      return `${currentUser.name} (${currentUser.email})`;
+    // Handle if managerData is just an ID string
+    if (typeof managerData === 'string') {
+      const manager = activeUsers.find(user => 
+        (user.id || user._id) === managerData
+      );
+      
+      if (manager) {
+        return `${manager.name} (${manager.email})`;
+      }
+      
+      // If not found in activeUsers, check if it's the current user
+      const currentUserId = currentUser.id || currentUser._id;
+      if (managerData === currentUserId) {
+        return `${currentUser.name} (${currentUser.email})`;
+      }
+      
+      return `Manager ID: ${managerData} (User not in active list)`;
     }
     
-    return `Manager ID: ${managerId} (User not in active list)`;
+    return 'No manager assigned';
   };
 
-  const getSupervisorInfo = (supervisorId: string): string => {
-    if (!supervisorId) return 'No supervisor assigned';
+  const getSupervisorInfo = (supervisorData: any): string => {
+    if (!supervisorData) return 'No supervisor assigned';
     
-    // First try to find in activeUsers
-    const supervisor = activeUsers.find(user => 
-      (user.id || user._id) === supervisorId
-    );
-    
-    if (supervisor) {
-      return `${supervisor.name} (${supervisor.email})`;
+    // Handle if supervisorData is a populated object
+    if (typeof supervisorData === 'object' && supervisorData.name) {
+      return `${supervisorData.name} (${supervisorData.email})`;
     }
     
-    // If not found in activeUsers, check if it's the current user
-    const currentUserId = currentUser.id || currentUser._id;
-    if (supervisorId === currentUserId) {
-      return `${currentUser.name} (${currentUser.email})`;
+    // Handle if supervisorData is just an ID string
+    if (typeof supervisorData === 'string') {
+      const supervisor = activeUsers.find(user => 
+        (user.id || user._id) === supervisorData
+      );
+      
+      if (supervisor) {
+        return `${supervisor.name} (${supervisor.email})`;
+      }
+      
+      // If not found in activeUsers, check if it's the current user
+      const currentUserId = currentUser.id || currentUser._id;
+      if (supervisorData === currentUserId) {
+        return `${currentUser.name} (${currentUser.email})`;
+      }
+      
+      return `Supervisor ID: ${supervisorData} (User not in active list)`;
     }
     
-    return `Supervisor ID: ${supervisorId} (User not in active list)`;
+    return 'No supervisor assigned';
   };
 
   // Helper function to get user's actual reporting data
@@ -1137,25 +1155,13 @@ export default function TeamMembersManager() {
                       <>
                         {/* Manager Information */}
                         <p className="text-sm text-muted-foreground">
-                          Manager: {reportingData.managerId ? 
-                            getManagerInfo(reportingData.managerId) : 
-                            (reportingData.managerName ? 
-                              `${reportingData.managerName} (from populated field)` :
-                              'No manager assigned'
-                            )
-                          }
+                          Manager: {getManagerInfo(viewDetailsDialog.user.managerId)}
                         </p>
                         
                         {/* Supervisor Information - only for members */}
                         {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && (
                           <p className="text-sm text-muted-foreground">
-                            Supervisor: {reportingData.supervisorId ? 
-                              getSupervisorInfo(reportingData.supervisorId) : 
-                              (reportingData.supervisorName ? 
-                                `${reportingData.supervisorName} (from populated field)` :
-                                'No supervisor assigned'
-                              )
-                            }
+                            Supervisor: {getSupervisorInfo(viewDetailsDialog.user.supervisorId)}
                           </p>
                         )}
                         
@@ -1177,14 +1183,14 @@ export default function TeamMembersManager() {
                         
                         {/* Show warning for members without proper hierarchy */}
                         {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && 
-                         (!reportingData.managerId && !reportingData.managerName) && (
+                         !viewDetailsDialog.user.managerId && (
                           <p className="text-sm text-amber-600">
                             ⚠️ No manager assigned. Consider updating this member's assignments.
                           </p>
                         )}
                         
                         {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && 
-                         (!reportingData.supervisorId && !reportingData.supervisorName) && (
+                         !viewDetailsDialog.user.supervisorId && (
                           <p className="text-sm text-amber-600">
                             ⚠️ No supervisor assigned. Consider updating this member's assignments.
                           </p>
