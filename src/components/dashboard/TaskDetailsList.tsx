@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Task, TaskStatus } from "@/lib/types";
-import { getUserById, updateTaskStatus } from "@/lib/dataService";
+import { getUserById, updateTaskStatus } from "@/lib/dataService.ts";
 import { formatDate, getRelativeTime } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
