@@ -197,11 +197,25 @@ export default function TeamMembersManager() {
   };
 
   const getApproverInfo = (approverId: string): string => {
-    const approver = activeUsers.find(user => (user.id || user._id) === approverId);
-    if (approver) {
-      return `${approver.name} (${approver.email})`;
+    if (!approverId) return 'N/A';
+    
+    try {
+      const approver = activeUsers.find(user => (user.id || user._id) === approverId);
+      if (approver) {
+        return `${approver.name} (${approver.email})`;
+      }
+      
+      // Check if it's the current user
+      const currentUserId = currentUser?.id || currentUser?._id;
+      if (approverId === currentUserId && currentUser) {
+        return `${currentUser.name} (${currentUser.email})`;
+      }
+      
+      return `User ID: ${approverId}`;
+    } catch (error) {
+      console.error('Error getting approver info:', error);
+      return `Approver ID: ${approverId}`;
     }
-    return approverId;
   };
 
   const getManagerInfo = (managerData: any): string => {
@@ -1057,12 +1071,12 @@ export default function TeamMembersManager() {
         </DialogContent>
       </Dialog>
 
-      {/* View Details Dialog */}
+      {/* View Details Dialog - Restored from working version */}
       <Dialog open={viewDetailsDialog.open} onOpenChange={(open) => !open && setViewDetailsDialog({ open: false, user: null })}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
+              <Eye className="h-5 w-5 text-blue-500" />
               User Details: {viewDetailsDialog.user?.name}
             </DialogTitle>
           </DialogHeader>
@@ -1149,7 +1163,10 @@ export default function TeamMembersManager() {
           )}
 
           <DialogFooter>
-            <Button onClick={() => setViewDetailsDialog({ open: false, user: null })}>
+            <Button 
+              variant="outline" 
+              onClick={() => setViewDetailsDialog({ open: false, user: null })}
+            >
               Close
             </Button>
           </DialogFooter>
