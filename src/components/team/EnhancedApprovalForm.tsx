@@ -34,6 +34,7 @@ export default function EnhancedApprovalForm({
         setLoadingUsers(true);
         const users = await getActiveUsers();
         setAvailableUsers(users);
+        console.log('Loaded users for hierarchy assignment:', users);
       } catch (error) {
         console.error('Error loading users:', error);
         toast.error('Failed to load users for assignment');
@@ -78,8 +79,22 @@ export default function EnhancedApprovalForm({
 
     try {
       setLoading(true);
+      const userId = pendingUser.id || pendingUser._id;
+      
+      if (!userId) {
+        toast.error('User ID not found');
+        return;
+      }
+
+      console.log('Approving user with hierarchy:', {
+        userId,
+        role: selectedRole,
+        supervisorId: selectedSupervisor || undefined,
+        managerId: selectedManager || undefined
+      });
+
       const success = await approveUser(
-        pendingUser.id, 
+        userId,
         selectedRole, 
         selectedSupervisor || undefined, 
         selectedManager || undefined
@@ -100,7 +115,14 @@ export default function EnhancedApprovalForm({
   const handleReject = async () => {
     try {
       setLoading(true);
-      const success = await rejectUser(pendingUser.id, 'Application rejected by admin');
+      const userId = pendingUser.id || pendingUser._id;
+      
+      if (!userId) {
+        toast.error('User ID not found');
+        return;
+      }
+
+      const success = await rejectUser(userId, 'Application rejected by admin');
       
       if (success) {
         toast.success('User application rejected');
@@ -132,13 +154,17 @@ export default function EnhancedApprovalForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <div className="space-y-6">
+      <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
           <UserCheck className="h-5 w-5" />
-          Approve User Application
+          Approve User: {pendingUser.name}
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Select a role for this user and assign their reporting structure.
+        </p>
       </CardHeader>
+
       <CardContent className="space-y-6">
         {/* User Information */}
         <div className="space-y-3">
@@ -195,7 +221,7 @@ export default function EnhancedApprovalForm({
                   <SelectContent>
                     {availableSupervisors.length > 0 ? (
                       availableSupervisors.map((supervisor) => (
-                        <SelectItem key={supervisor.id} value={supervisor.id}>
+                        <SelectItem key={supervisor.id || supervisor._id} value={supervisor.id || supervisor._id}>
                           {supervisor.name} ({supervisor.email})
                         </SelectItem>
                       ))
@@ -227,7 +253,7 @@ export default function EnhancedApprovalForm({
                   <SelectContent>
                     {availableManagers.length > 0 ? (
                       availableManagers.map((manager) => (
-                        <SelectItem key={manager.id} value={manager.id}>
+                        <SelectItem key={manager.id || manager._id} value={manager.id || manager._id}>
                           {manager.name} ({manager.email})
                         </SelectItem>
                       ))
@@ -256,14 +282,14 @@ export default function EnhancedApprovalForm({
                   {selectedRole === 'team_member' && (
                     <>
                       <div>👤 {pendingUser.name} (Team Member)</div>
-                      <div className="ml-4">↗️ Reports to: {selectedSupervisor ? availableSupervisors.find(s => s.id === selectedSupervisor)?.name : 'Select Supervisor'}</div>
-                      <div className="ml-8">↗️ Reports to: {selectedManager ? availableManagers.find(m => m.id === selectedManager)?.name : 'Select Manager'}</div>
+                      <div className="ml-4">↗️ Reports to: {selectedSupervisor ? availableSupervisors.find(s => (s.id || s._id) === selectedSupervisor)?.name : 'Select Supervisor'}</div>
+                      <div className="ml-8">↗️ Reports to: {selectedManager ? availableManagers.find(m => (m.id || m._id) === selectedManager)?.name : 'Select Manager'}</div>
                     </>
                   )}
                   {selectedRole === 'supervisor' && (
                     <>
                       <div>👤 {pendingUser.name} (Supervisor)</div>
-                      <div className="ml-4">↗️ Reports to: {selectedManager ? availableManagers.find(m => m.id === selectedManager)?.name : 'Select Manager'}</div>
+                      <div className="ml-4">↗️ Reports to: {selectedManager ? availableManagers.find(m => (m.id || m._id) === selectedManager)?.name : 'Select Manager'}</div>
                     </>
                   )}
                   {selectedRole === 'manager' && (
@@ -308,6 +334,6 @@ export default function EnhancedApprovalForm({
           </div>
         )}
       </CardContent>
-    </Card>
+    </div>
   );
 }
