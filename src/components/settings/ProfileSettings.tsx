@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { User, Camera, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { getCurrentUser } from "@/lib/dataService";
+import { getCurrentUser } from "@/lib/dataService.ts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const ProfileSettings = () => {
