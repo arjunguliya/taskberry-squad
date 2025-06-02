@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
-import { registerUser } from "@/lib/dataService"; // Updated import
+import { registerUser } from "@/lib/dataService.ts"; // Updated import
 
 export function SignupForm() {
   const [name, setName] = useState("");
