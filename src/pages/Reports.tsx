@@ -8,7 +8,7 @@ import { ReportForm } from "@/components/reports/ReportForm";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { BarChart3, CalendarDays, Download, FileText, Printer, ArrowDown, ArrowUp } from "lucide-react";
-import { getReports, getTaskById, getUserById } from "@/lib/dataService";
+import { getReports, getTaskById, getUserById } from "@/lib/dataService.ts";
 import { formatDate } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
