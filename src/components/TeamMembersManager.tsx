@@ -763,25 +763,39 @@ export default function TeamMembersManager() {
                       </Label>
                       <Select 
                         value={approvalDialog.supervisorId} 
-                        onValueChange={(value) => 
-                          setApprovalDialog(prev => ({ ...prev, supervisorId: value }))
-                        }
+                        onValueChange={(value) => {
+                          // Only set the value if it's not a placeholder
+                          if (value && value !== 'no-supervisors') {
+                            setApprovalDialog(prev => ({ ...prev, supervisorId: value }))
+                          }
+                        }}
                       >
                         <SelectTrigger id="supervisor-select">
                           <SelectValue placeholder="Select a supervisor" />
                         </SelectTrigger>
                         <SelectContent>
-                          {activeUsers.filter(user => user.role === 'supervisor').length > 0 ? (
-                            activeUsers.filter(user => user.role === 'supervisor').map((supervisor) => (
-                              <SelectItem key={supervisor.id || supervisor._id} value={supervisor.id || supervisor._id || ''}>
-                                {supervisor.name} ({supervisor.email})
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="" disabled>
-                              No supervisors available
-                            </SelectItem>
-                          )}
+                          {(() => {
+                            const supervisors = activeUsers.filter(user => user.role === 'supervisor');
+                            if (supervisors.length === 0) {
+                              return (
+                                <SelectItem value="no-supervisors" disabled>
+                                  No supervisors available
+                                </SelectItem>
+                              );
+                            }
+                            return supervisors.map((supervisor) => {
+                              const supervisorId = supervisor.id || supervisor._id;
+                              if (!supervisorId) {
+                                console.warn('Supervisor missing ID:', supervisor);
+                                return null;
+                              }
+                              return (
+                                <SelectItem key={supervisorId} value={supervisorId}>
+                                  {supervisor.name} ({supervisor.email})
+                                </SelectItem>
+                              );
+                            }).filter(Boolean);
+                          })()}
                         </SelectContent>
                       </Select>
                       {activeUsers.filter(user => user.role === 'supervisor').length === 0 && (
@@ -800,25 +814,39 @@ export default function TeamMembersManager() {
                       </Label>
                       <Select 
                         value={approvalDialog.managerId} 
-                        onValueChange={(value) => 
-                          setApprovalDialog(prev => ({ ...prev, managerId: value }))
-                        }
+                        onValueChange={(value) => {
+                          // Only set the value if it's not a placeholder
+                          if (value && value !== 'no-managers') {
+                            setApprovalDialog(prev => ({ ...prev, managerId: value }))
+                          }
+                        }}
                       >
                         <SelectTrigger id="manager-select">
                           <SelectValue placeholder="Select a manager" />
                         </SelectTrigger>
                         <SelectContent>
-                          {activeUsers.filter(user => user.role === 'manager').length > 0 ? (
-                            activeUsers.filter(user => user.role === 'manager').map((manager) => (
-                              <SelectItem key={manager.id || manager._id} value={manager.id || manager._id || ''}>
-                                {manager.name} ({manager.email})
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="" disabled>
-                              No managers available
-                            </SelectItem>
-                          )}
+                          {(() => {
+                            const managers = activeUsers.filter(user => user.role === 'manager');
+                            if (managers.length === 0) {
+                              return (
+                                <SelectItem value="no-managers" disabled>
+                                  No managers available
+                                </SelectItem>
+                              );
+                            }
+                            return managers.map((manager) => {
+                              const managerId = manager.id || manager._id;
+                              if (!managerId) {
+                                console.warn('Manager missing ID:', manager);
+                                return null;
+                              }
+                              return (
+                                <SelectItem key={managerId} value={managerId}>
+                                  {manager.name} ({manager.email})
+                                </SelectItem>
+                              );
+                            }).filter(Boolean);
+                          })()}
                         </SelectContent>
                       </Select>
                       {activeUsers.filter(user => user.role === 'manager').length === 0 && (
