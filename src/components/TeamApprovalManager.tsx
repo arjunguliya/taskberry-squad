@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "@/lib/types";
-import { getPendingUsers } from "@/lib/dataService";
+import { getPendingUsers } from "@/lib/dataService.ts";
 import { Users, UserPlus, Clock, CheckCircle, XCircle } from "lucide-react";
 import EnhancedApprovalForm from "./EnhancedApprovalForm";
 
