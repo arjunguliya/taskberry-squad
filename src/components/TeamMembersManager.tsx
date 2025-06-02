@@ -406,6 +406,7 @@ export default function TeamMembersManager() {
   const getManagerInfo = (managerId: string): string => {
     if (!managerId) return 'No manager assigned';
     
+    // First try to find in activeUsers
     const manager = activeUsers.find(user => 
       (user.id || user._id) === managerId
     );
@@ -414,12 +415,19 @@ export default function TeamMembersManager() {
       return `${manager.name} (${manager.email})`;
     }
     
-    return 'Manager not found';
+    // If not found in activeUsers, check if it's the current user
+    const currentUserId = currentUser.id || currentUser._id;
+    if (managerId === currentUserId) {
+      return `${currentUser.name} (${currentUser.email})`;
+    }
+    
+    return `Manager ID: ${managerId} (User not in active list)`;
   };
 
   const getSupervisorInfo = (supervisorId: string): string => {
     if (!supervisorId) return 'No supervisor assigned';
     
+    // First try to find in activeUsers
     const supervisor = activeUsers.find(user => 
       (user.id || user._id) === supervisorId
     );
@@ -428,7 +436,30 @@ export default function TeamMembersManager() {
       return `${supervisor.name} (${supervisor.email})`;
     }
     
-    return 'Supervisor not found';
+    // If not found in activeUsers, check if it's the current user
+    const currentUserId = currentUser.id || currentUser._id;
+    if (supervisorId === currentUserId) {
+      return `${currentUser.name} (${currentUser.email})`;
+    }
+    
+    return `Supervisor ID: ${supervisorId} (User not in active list)`;
+  };
+
+  // Helper function to get user's actual reporting data
+  const getUserReportingData = (user: User) => {
+    console.log('Getting reporting data for user:', user);
+    console.log('User managerId:', user.managerId);
+    console.log('User supervisorId:', user.supervisorId);
+    console.log('User manager:', user.manager);
+    console.log('User supervisor:', user.supervisor);
+    console.log('Active users available:', activeUsers.length);
+    
+    return {
+      managerId: user.managerId || user.manager?.id || user.manager?._id,
+      supervisorId: user.supervisorId || user.supervisor?.id || user.supervisor?._id,
+      managerName: user.manager?.name,
+      supervisorName: user.supervisor?.name
+    };
   };
 
   // Check if user is super admin
@@ -1095,36 +1126,72 @@ export default function TeamMembersManager() {
                 )}
               </div>
               
-              {/* Always show reporting structure section */}
+              {/* Always show reporting structure section with debugging */}
               <div>
                 <Label className="text-sm font-medium">Reporting Structure</Label>
                 <div className="mt-2 space-y-2">
-                  {viewDetailsDialog.user.managerId ? (
-                    <p className="text-sm text-muted-foreground">
-                      Manager: {getManagerInfo(viewDetailsDialog.user.managerId)}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Manager: {getManagerInfo('')}
-                    </p>
-                  )}
-                  {viewDetailsDialog.user.supervisorId ? (
-                    <p className="text-sm text-muted-foreground">
-                      Supervisor: {getSupervisorInfo(viewDetailsDialog.user.supervisorId)}
-                    </p>
-                  ) : viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member' ? (
-                    <p className="text-sm text-muted-foreground">
-                      Supervisor: {getSupervisorInfo('')}
-                    </p>
-                  ) : null}
-                  
-                  {/* Show warning for members without proper hierarchy */}
-                  {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && 
-                   (!viewDetailsDialog.user.supervisorId || !viewDetailsDialog.user.managerId) && (
-                    <p className="text-sm text-amber-600">
-                      ⚠️ Incomplete reporting hierarchy. Consider updating this member's assignments.
-                    </p>
-                  )}
+                  {(() => {
+                    const reportingData = getUserReportingData(viewDetailsDialog.user);
+                    
+                    return (
+                      <>
+                        {/* Manager Information */}
+                        <p className="text-sm text-muted-foreground">
+                          Manager: {reportingData.managerId ? 
+                            getManagerInfo(reportingData.managerId) : 
+                            (reportingData.managerName ? 
+                              `${reportingData.managerName} (from populated field)` :
+                              'No manager assigned'
+                            )
+                          }
+                        </p>
+                        
+                        {/* Supervisor Information - only for members */}
+                        {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && (
+                          <p className="text-sm text-muted-foreground">
+                            Supervisor: {reportingData.supervisorId ? 
+                              getSupervisorInfo(reportingData.supervisorId) : 
+                              (reportingData.supervisorName ? 
+                                `${reportingData.supervisorName} (from populated field)` :
+                                'No supervisor assigned'
+                              )
+                            }
+                          </p>
+                        )}
+                        
+                        {/* Debug information - remove in production */}
+                        <details className="text-xs text-gray-500">
+                          <summary>Debug Info (click to expand)</summary>
+                          <pre className="mt-1 p-2 bg-gray-100 rounded text-xs overflow-auto">
+                            {JSON.stringify({
+                              role: viewDetailsDialog.user.role,
+                              managerId: viewDetailsDialog.user.managerId,
+                              supervisorId: viewDetailsDialog.user.supervisorId,
+                              manager: viewDetailsDialog.user.manager,
+                              supervisor: viewDetailsDialog.user.supervisor,
+                              reportingData: reportingData,
+                              activeUsersCount: activeUsers.length
+                            }, null, 2)}
+                          </pre>
+                        </details>
+                        
+                        {/* Show warning for members without proper hierarchy */}
+                        {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && 
+                         (!reportingData.managerId && !reportingData.managerName) && (
+                          <p className="text-sm text-amber-600">
+                            ⚠️ No manager assigned. Consider updating this member's assignments.
+                          </p>
+                        )}
+                        
+                        {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && 
+                         (!reportingData.supervisorId && !reportingData.supervisorName) && (
+                          <p className="text-sm text-amber-600">
+                            ⚠️ No supervisor assigned. Consider updating this member's assignments.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
