@@ -13,7 +13,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Task, TaskStatus, User } from "@/lib/types";
 import { calculateStatusCounts, getInitials } from "@/lib/utils";
 import { BarChart, CalendarClock, CheckCircle, Clock, ListTodo, Plus, Users, X } from "lucide-react";
-import { getTasksForTeam, getTeamMembers, updateTaskStatus } from "@/lib/dataService";
+import { getTasksForTeam, getTeamMembers, updateTaskStatus } from "@/lib/dataService.ts";
 import { TaskDetailsList } from "@/components/dashboard/TaskDetailsList";
 import { TeamMembersList } from "@/components/dashboard/TeamMembersList";
 import { useIsMobile } from "@/hooks/use-mobile";
