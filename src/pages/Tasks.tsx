@@ -8,7 +8,7 @@ import { TaskCard } from "@/components/dashboard/TaskCard";
 import { TaskForm } from "@/components/dashboard/TaskForm";
 import { Task, TaskStatus } from "@/lib/types";
 import { Plus, Search } from "lucide-react";
-import { getCurrentUser, getTasksForTeam } from "@/lib/dataService";
+import { getCurrentUser, getTasksForTeam } from "@/lib/dataService.ts";
 
 export default function Tasks() {
   const [searchParams] = useSearchParams();
