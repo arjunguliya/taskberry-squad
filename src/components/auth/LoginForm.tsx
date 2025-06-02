@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, Mail, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { resetDataToDefaults } from "@/lib/dataService";
+import { resetDataToDefaults } from "@/lib/dataService.ts";
 
 // Real Authentication Service
 class AuthService {
