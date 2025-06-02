@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { User } from "@/lib/types";
 import { toast } from "sonner";
 import { Check, X, Users, UserCheck } from "lucide-react";
-import { approveUser, rejectUser, getActiveUsers } from "@/lib/dataService";
+import { approveUser, rejectUser, getActiveUsers } from "@/lib/dataService.ts";
 
 interface EnhancedApprovalFormProps {
   pendingUser: User;
