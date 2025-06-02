@@ -46,14 +46,178 @@ export default function TeamMembersManager() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   
-  // Enhanced approval dialog state
-  const [approvalDialog, setApprovalDialog] = useState<{
-    open: boolean;
-    user: PendingUser | null;
-  }>({
-    open: false,
-    user: null
-  });
+// Enhanced Approval Dialog
+<Dialog open={approvalDialog.open} onOpenChange={(open) => 
+  setApprovalDialog(prev => ({ ...prev, open }))
+}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <UserCheck className="h-5 w-5" />
+        Approve User: {approvalDialog.user?.name}
+      </DialogTitle>
+      <DialogDescription>
+        Select a role for this user and assign their reporting structure.
+      </DialogDescription>
+    </DialogHeader>
+    
+    {approvalDialog.user && (
+      <div className="space-y-6">
+        {/* User Information */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">Applicant</Label>
+            <Badge variant="outline">Pending Approval</Badge>
+          </div>
+          <div className="p-3 bg-muted rounded-lg">
+            <div className="font-medium">{approvalDialog.user.name}</div>
+            <div className="text-sm text-muted-foreground">{approvalDialog.user.email}</div>
+          </div>
+        </div>
+
+        {/* Role Selection */}
+        <div className="space-y-3">
+          <Label htmlFor="role-select" className="text-sm font-medium">
+            Assign Role <span className="text-red-500">*</span>
+          </Label>
+          <Select 
+            value={approvalDialog.selectedRole} 
+            onValueChange={(value) => 
+              setApprovalDialog(prev => ({ ...prev, selectedRole: value, supervisorId: '', managerId: '' }))
+            }
+          >
+            <SelectTrigger id="role-select">
+              <SelectValue placeholder="Select a role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="team_member">Team Member</SelectItem>
+              <SelectItem value="supervisor">Supervisor</SelectItem>
+              <SelectItem value="manager">Manager</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Hierarchical Assignments */}
+        {approvalDialog.selectedRole && (
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <Label className="text-sm font-medium">Hierarchical Assignments</Label>
+            </div>
+
+            {/* Supervisor Assignment for Team Members */}
+            {approvalDialog.selectedRole === 'team_member' && (
+              <div className="space-y-2">
+                <Label htmlFor="supervisor-select" className="text-sm">
+                  Assign Supervisor <span className="text-red-500">*</span>
+                </Label>
+                <Select 
+                  value={approvalDialog.supervisorId || ''} 
+                  onValueChange={(value) => 
+                    setApprovalDialog(prev => ({ ...prev, supervisorId: value }))
+                  }
+                >
+                  <SelectTrigger id="supervisor-select">
+                    <SelectValue placeholder="Select a supervisor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeUsers.filter(user => user.role === 'supervisor').length > 0 ? (
+                      activeUsers.filter(user => user.role === 'supervisor').map((supervisor) => (
+                        <SelectItem key={supervisor.id || supervisor._id} value={supervisor.id || supervisor._id}>
+                          {supervisor.name} ({supervisor.email})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
+                        No supervisors available
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Manager Assignment for Team Members and Supervisors */}
+            {(approvalDialog.selectedRole === 'team_member' || approvalDialog.selectedRole === 'supervisor') && (
+              <div className="space-y-2">
+                <Label htmlFor="manager-select" className="text-sm">
+                  Assign Manager <span className="text-red-500">*</span>
+                </Label>
+                <Select 
+                  value={approvalDialog.managerId || ''} 
+                  onValueChange={(value) => 
+                    setApprovalDialog(prev => ({ ...prev, managerId: value }))
+                  }
+                >
+                  <SelectTrigger id="manager-select">
+                    <SelectValue placeholder="Select a manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeUsers.filter(user => user.role === 'manager').length > 0 ? (
+                      activeUsers.filter(user => user.role === 'manager').map((manager) => (
+                        <SelectItem key={manager.id || manager._id} value={manager.id || manager._id}>
+                          {manager.name} ({manager.email})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="" disabled>
+                        No managers available
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Hierarchy Display */}
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <div className="text-xs font-medium text-blue-900 mb-2">
+                Reporting Structure:
+              </div>
+              <div className="text-xs text-blue-800 space-y-1">
+                {approvalDialog.selectedRole === 'team_member' && (
+                  <>
+                    <div>👤 {approvalDialog.user.name} (Team Member)</div>
+                    <div className="ml-4">↗️ Reports to: {approvalDialog.supervisorId ? activeUsers.find(s => (s.id || s._id) === approvalDialog.supervisorId)?.name : 'Select Supervisor'}</div>
+                    <div className="ml-8">↗️ Reports to: {approvalDialog.managerId ? activeUsers.find(m => (m.id || m._id) === approvalDialog.managerId)?.name : 'Select Manager'}</div>
+                  </>
+                )}
+                {approvalDialog.selectedRole === 'supervisor' && (
+                  <>
+                    <div>👤 {approvalDialog.user.name} (Supervisor)</div>
+                    <div className="ml-4">↗️ Reports to: {approvalDialog.managerId ? activeUsers.find(m => (m.id || m._id) === approvalDialog.managerId)?.name : 'Select Manager'}</div>
+                  </>
+                )}
+                {approvalDialog.selectedRole === 'manager' && (
+                  <>
+                    <div>👤 {approvalDialog.user.name} (Manager)</div>
+                    <div className="ml-4">↗️ Reports to: Admin</div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+    <DialogFooter>
+      <Button 
+        variant="outline" 
+        onClick={() => setApprovalDialog({ open: false, user: null, selectedRole: '', supervisorId: '', managerId: '' })}
+        disabled={actionLoading !== null}
+      >
+        Cancel
+      </Button>
+      <Button 
+        onClick={handleApproveUser}
+        disabled={!approvalDialog.selectedRole || actionLoading !== null}
+      >
+        {actionLoading ? 'Approving...' : 'Approve User'}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
   // Rejection dialog state
   const [rejectionDialog, setRejectionDialog] = useState<{
