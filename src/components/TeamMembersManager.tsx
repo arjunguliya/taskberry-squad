@@ -43,6 +43,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 
 // Types
 interface User {
@@ -107,11 +108,6 @@ export default function TeamMembersManager() {
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://taskberry-backend.onrender.com';
-
-  const toast = {
-    success: (message: string) => console.log('Success:', message),
-    error: (message: string) => console.error('Error:', message)
-  };
 
   // Load users on component mount
   useEffect(() => {
@@ -443,20 +439,20 @@ export default function TeamMembersManager() {
     }
   };
 
+  // FIXED: Updated approval function with proper error handling and validation
   const approveUser = async () => {
     if (!approvalDialog.user || !approvalDialog.selectedRole) {
       toast.error('Please select a role');
       return;
     }
 
+    // FIXED: Validation based on role hierarchy - using 'member' instead of 'team_member'
     if (approvalDialog.selectedRole === 'member') {
       if (!approvalDialog.supervisorId || !approvalDialog.managerId) {
         toast.error('Members must have both a supervisor and manager assigned');
         return;
       }
-    }
-
-    if (approvalDialog.selectedRole === 'supervisor') {
+    } else if (approvalDialog.selectedRole === 'supervisor') {
       if (!approvalDialog.managerId) {
         toast.error('Supervisors must have a manager assigned');
         return;
@@ -465,30 +461,56 @@ export default function TeamMembersManager() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/users/${approvalDialog.user.id || approvalDialog.user._id}/approve`, {
-        method: 'POST',
+      if (!token) {
+        toast.error('Authentication token not found. Please log in again.');
+        return;
+      }
+
+      console.log('=== TEAM MEMBERS MANAGER APPROVAL ===');
+      console.log('Approving user:', approvalDialog.user);
+      console.log('Selected role:', approvalDialog.selectedRole);
+      console.log('Supervisor ID:', approvalDialog.supervisorId);
+      console.log('Manager ID:', approvalDialog.managerId);
+
+      const userId = approvalDialog.user.id || approvalDialog.user._id;
+      if (!userId) {
+        toast.error('User ID not found');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}/approve`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          role: approvalDialog.selectedRole,
+          role: approvalDialog.selectedRole, // Send the role directly (backend expects 'member')
           supervisorId: approvalDialog.selectedRole === 'member' ? approvalDialog.supervisorId : null,
           managerId: (approvalDialog.selectedRole === 'member' || approvalDialog.selectedRole === 'supervisor') ? approvalDialog.managerId : null
         })
       });
 
+      console.log('Approval response status:', response.status);
+
       if (response.ok) {
+        const data = await response.json();
+        console.log('Approval successful:', data);
         toast.success('User approved successfully');
         setApprovalDialog({ open: false, user: null, selectedRole: '', supervisorId: '', managerId: '' });
-        loadUsers();
+        loadUsers(); // Reload the users list
       } else {
         const errorData = await response.json();
+        console.error('Approval failed:', errorData);
         toast.error(errorData.message || 'Failed to approve user');
       }
     } catch (error) {
       console.error('Error approving user:', error);
-      toast.error('Failed to approve user');
+      if (error instanceof Error && error.message.includes('fetch')) {
+        toast.error('Network error: Cannot connect to server');
+      } else {
+        toast.error('Failed to approve user');
+      }
     }
   };
 
@@ -799,6 +821,7 @@ export default function TeamMembersManager() {
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* FIXED: Role selection with correct values */}
                     <SelectItem value="member">Member</SelectItem>
                     <SelectItem value="supervisor">Supervisor</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
@@ -814,7 +837,7 @@ export default function TeamMembersManager() {
                     <Label className="text-sm font-medium">Hierarchical Assignments</Label>
                   </div>
 
-                  {/* Supervisor Assignment for Members */}
+                  {/* FIXED: Supervisor Assignment for Members - checking for 'member' */}
                   {approvalDialog.selectedRole === 'member' && (
                     <div className="space-y-2">
                       <Label htmlFor="supervisor-select" className="text-sm">
@@ -864,7 +887,7 @@ export default function TeamMembersManager() {
                     </div>
                   )}
 
-                  {/* Manager Assignment for Members and Supervisors */}
+                  {/* FIXED: Manager Assignment for Members and Supervisors - checking for 'member' */}
                   {(approvalDialog.selectedRole === 'member' || approvalDialog.selectedRole === 'supervisor') && (
                     <div className="space-y-2">
                       <Label htmlFor="manager-select" className="text-sm">
@@ -925,6 +948,7 @@ export default function TeamMembersManager() {
             >
               Cancel
             </Button>
+            {/* FIXED: Button disabled state validation */}
             <Button 
               onClick={approveUser}
               disabled={!approvalDialog.selectedRole || 
