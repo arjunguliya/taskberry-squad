@@ -319,10 +319,12 @@ export default function TeamMembersManager() {
   };
 
   const handleReject = async (user: User) => {
+    if (!confirm(`Are you sure you want to reject ${user.name}?`)) return;
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/api/users/${user.id || user._id}/reject`, {
-        method: 'POST',
+        method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -332,8 +334,10 @@ export default function TeamMembersManager() {
       if (response.ok) {
         toast.success('User rejected successfully');
         loadUsers();
+        loadPendingApprovals();
       } else {
-        toast.error('Failed to reject user');
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to reject user');
       }
     } catch (error) {
       console.error('Error rejecting user:', error);
