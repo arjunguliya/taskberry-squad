@@ -117,7 +117,53 @@ export default function TeamMembersManager() {
   useEffect(() => {
     loadUsers();
     loadCurrentUser();
+    testApiConnectivity(); // Add API test on load
   }, []);
+
+  const testApiConnectivity = async () => {
+    try {
+      console.log('🧪 Testing API connectivity...');
+      
+      // Test 1: Health check endpoint
+      const healthResponse = await fetch(`${API_BASE_URL}/api/health`);
+      console.log('Health check status:', healthResponse.status);
+      
+      if (healthResponse.ok) {
+        const healthData = await healthResponse.json();
+        console.log('Health check data:', healthData);
+      }
+      
+      // Test 2: Root endpoint  
+      const rootResponse = await fetch(`${API_BASE_URL}/`);
+      console.log('Root endpoint status:', rootResponse.status);
+      
+      if (rootResponse.ok) {
+        const rootData = await rootResponse.json();
+        console.log('Root endpoint data:', rootData);
+      }
+      
+      // Test 3: Check if /api/users is accessible (this should match what loadUsers does)
+      const token = localStorage.getItem('token');
+      if (token) {
+        const usersResponse = await fetch(`${API_BASE_URL}/api/users`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        console.log('Users endpoint status:', usersResponse.status);
+        
+        if (!usersResponse.ok) {
+          console.log('Users endpoint failed - checking response type...');
+          const contentType = usersResponse.headers.get('content-type');
+          if (contentType && contentType.includes('text/html')) {
+            const htmlResponse = await usersResponse.text();
+            console.log('HTML Error Response:', htmlResponse.slice(0, 1000));
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('API connectivity test failed:', error);
+    }
+  };
 
   const loadCurrentUser = () => {
     const userData = localStorage.getItem('user');
@@ -149,33 +195,61 @@ export default function TeamMembersManager() {
       setLoading(true);
       const token = localStorage.getItem('token');
       
+      console.log('🔄 Loading users...');
+      console.log('API_BASE_URL:', API_BASE_URL);
+      console.log('Token present:', !!token);
+      
       // Fetch pending users
+      console.log('Fetching pending users...');
       const pendingResponse = await fetch(`${API_BASE_URL}/api/users/pending`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       
+      console.log('Pending users response status:', pendingResponse.status);
+      
       if (pendingResponse.ok) {
         const pendingData = await pendingResponse.json();
+        console.log('Pending users data:', pendingData);
         setPendingUsers(pendingData);
+      } else {
+        console.error('Failed to fetch pending users:', pendingResponse.status);
+        // Check if it's an HTML error page
+        const contentType = pendingResponse.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          const htmlResponse = await pendingResponse.text();
+          console.log('Pending users HTML error:', htmlResponse.slice(0, 500));
+        }
       }
 
       // Fetch active users
+      console.log('Fetching active users...');
       const activeResponse = await fetch(`${API_BASE_URL}/api/users`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
+      console.log('Active users response status:', activeResponse.status);
+      
       if (activeResponse.ok) {
         const activeData = await activeResponse.json();
+        console.log('Active users data:', activeData);
         // Map any legacy role names
         const mappedUsers = activeData.map((user: User) => ({
           ...user,
           role: user.role === 'team_member' ? 'member' : user.role
         }));
         setActiveUsers(mappedUsers);
+      } else {
+        console.error('Failed to fetch active users:', activeResponse.status);
+        // Check if it's an HTML error page
+        const contentType = activeResponse.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          const htmlResponse = await activeResponse.text();
+          console.log('Active users HTML error:', htmlResponse.slice(0, 500));
+        }
       }
     } catch (error) {
       console.error('Error loading users:', error);
