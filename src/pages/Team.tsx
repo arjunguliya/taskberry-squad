@@ -59,8 +59,8 @@ export default function Team() {
         let filteredMembers: User[] = [];
         
         if (currentUser.role === 'super_admin') {
-          // Super admin sees all active users
-          filteredMembers = activeMembers;
+          // Super admin sees all active users except other super admins
+          filteredMembers = activeMembers.filter(user => user.role !== 'super_admin');
         } else if (currentUser.role === 'manager') {
           // Manager sees users assigned to them (direct reports + supervisors under them)
           filteredMembers = activeMembers.filter(user => {
@@ -195,9 +195,12 @@ export default function Team() {
 
   // Calculate team statistics based on user role
   const getTeamStats = () => {
-    const members = teamMembers.filter(user => user.role === 'member' || user.role === 'team_member');
-    const supervisors = teamMembers.filter(user => user.role === 'supervisor');
-    const managers = teamMembers.filter(user => user.role === 'manager');
+    // Exclude super_admin from team member counts
+    const filteredTeamMembers = teamMembers.filter(user => user.role !== 'super_admin');
+    
+    const members = filteredTeamMembers.filter(user => user.role === 'member' || user.role === 'team_member');
+    const supervisors = filteredTeamMembers.filter(user => user.role === 'supervisor');
+    const managers = filteredTeamMembers.filter(user => user.role === 'manager');
     const totalMembers = members.length + supervisors.length + managers.length;
 
     return {
