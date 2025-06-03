@@ -331,13 +331,34 @@ export const approveUser = async (
   managerId?: string
 ): Promise<boolean> => {
   try {
+    console.log('=== APPROVE USER API CALL ===');
     console.log(`Approving user ${userId} with role ${role}`);
     console.log('Supervisor ID:', supervisorId);
     console.log('Manager ID:', managerId);
 
-    // Map frontend role to backend role
+    // Map frontend role to backend role (if needed)
     const backendRole = mapRoleForBackend(role);
     console.log('Mapped role for backend:', backendRole);
+
+    // Validate inputs
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
+    if (!role) {
+      throw new Error('Role is required');
+    }
+
+    // Validate hierarchy requirements
+    if (role === 'member') {
+      if (!supervisorId || !managerId) {
+        throw new Error('Members must have both supervisor and manager assigned');
+      }
+    } else if (role === 'supervisor') {
+      if (!managerId) {
+        throw new Error('Supervisors must have a manager assigned');
+      }
+    }
 
     const requestBody = { 
       role: backendRole, // Use mapped role
@@ -347,67 +368,79 @@ export const approveUser = async (
 
     console.log('Approval request body:', requestBody);
 
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/users/${userId}/approve`, {
       method: 'PUT',
-      headers: getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify(requestBody)
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      console.log('User approved successfully:', data);
+    console.log('Approval response status:', response.status);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       
-      // Show success message with hierarchy info
-      let successMessage = `User approved as ${role.replace('_', ' ')}`;
-      if (data.hierarchy) {
-        if (data.hierarchy.supervisor) {
-          successMessage += ` under supervisor ${data.hierarchy.supervisor.name}`;
-        }
-        if (data.hierarchy.manager) {
-          successMessage += ` reporting to manager ${data.hierarchy.manager.name}`;
-        }
-      } else if (supervisorId || managerId) {
-        successMessage += ' with reporting structure assigned';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+        console.error('Approval error response:', errorData);
+      } catch (parseError) {
+        console.error('Could not parse error response:', parseError);
       }
       
-      toast.success(successMessage);
-      return true;
-    } else {
-      const error = await response.json();
-      console.error('Failed to approve user:', error);
-      toast.error(error.message || 'Failed to approve user');
-      return false;
+      throw new Error(errorMessage);
     }
+
+    const data = await response.json();
+    console.log('User approved successfully:', data);
+    
+    // Show success message with hierarchy info
+    let successMessage = `User approved as ${role.replace('_', ' ')}`;
+    if (data.hierarchy) {
+      if (data.hierarchy.supervisor) {
+        successMessage += ` under supervisor ${data.hierarchy.supervisor.name}`;
+      }
+      if (data.hierarchy.manager) {
+        successMessage += ` reporting to manager ${data.hierarchy.manager.name}`;
+      }
+    } else if (supervisorId || managerId) {
+      successMessage += ' with reporting structure assigned';
+    }
+    
+    toast.success(successMessage);
+    return true;
+    
   } catch (error) {
+    console.error('=== APPROVAL ERROR ===');
     console.error('Error approving user:', error);
-    toast.error('Failed to approve user - network error');
-    return false;
-  }
-};
-
-export const rejectUser = async (userId: string, reason?: string): Promise<boolean> => {
-  try {
-    console.log(`Rejecting user ${userId}`);
-    const response = await fetch(`${API_BASE_URL}/api/users/${userId}/reject`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ reason: reason || 'No reason provided' })
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('User rejected:', data);
-      toast.success('User rejected successfully');
-      return true;
+    
+    if (error instanceof Error) {
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        toast.error('Network error: Cannot connect to server. Please check your connection.');
+      } else if (error.message.includes('401')) {
+        toast.error('Authentication failed. Please log in again.');
+        // Redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      } else if (error.message.includes('403')) {
+        toast.error('Permission denied. You do not have permission to approve users.');
+      } else if (error.message.includes('404')) {
+        toast.error('User not found or approval endpoint not available.');
+      } else {
+        toast.error(error.message);
+      }
     } else {
-      const error = await response.json();
-      console.error('Failed to reject user:', error);
-      toast.error(error.message || 'Failed to reject user');
-      return false;
+      toast.error('Failed to approve user - unknown error');
     }
-  } catch (error) {
-    console.error('Error rejecting user:', error);
-    toast.error('Failed to reject user');
+    
     return false;
   }
 };
