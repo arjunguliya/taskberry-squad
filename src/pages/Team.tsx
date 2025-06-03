@@ -80,7 +80,17 @@ export default function Team() {
   const formatRole = (role: string): string => {
     if (!role) return 'Member';
     
-    return role
+    // Handle specific role mappings
+    const roleMap: { [key: string]: string } = {
+      'member': 'Member',
+      'team_member': 'Member',
+      'supervisor': 'Supervisor', 
+      'manager': 'Manager',
+      'super_admin': 'Super Admin'
+    };
+    
+    // Return mapped role or format the role string
+    return roleMap[role] || role
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
