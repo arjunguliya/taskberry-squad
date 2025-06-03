@@ -2,10 +2,18 @@ import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserPlus, Mail, Phone, MapPin } from "lucide-react";
+import { Users, UserPlus, Mail, Phone, MapPin, Eye } from "lucide-react";
 import { User } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { getActiveUsers } from "@/lib/dataService.ts"; // Import the new function
 
 // Context type for user data from AppLayout
@@ -17,6 +25,15 @@ export default function Team() {
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Dialog state for viewing member details
+  const [viewDetailsDialog, setViewDetailsDialog] = useState<{
+    open: boolean;
+    user: User | null;
+  }>({
+    open: false,
+    user: null
+  });
   
   // Get user from AppLayout context
   const { currentUser } = useOutletContext<AppLayoutContext>();
@@ -76,6 +93,65 @@ export default function Team() {
     const words = name.trim().split(/\s+/);
     if (words.length === 1) return words[0].charAt(0).toUpperCase();
     return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase();
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  // Helper functions for hierarchical info
+  const getManagerInfo = (managerData: any): string => {
+    if (!managerData) return 'No manager assigned';
+    
+    if (typeof managerData === 'object' && managerData.name) {
+      return `${managerData.name} (${managerData.email})`;
+    }
+    
+    if (typeof managerData === 'string') {
+      const manager = teamMembers.find(member => 
+        (member.id || member._id) === managerData
+      );
+      
+      if (manager) {
+        return `${manager.name} (${manager.email})`;
+      }
+      
+      return `Manager ID: ${managerData}`;
+    }
+    
+    return 'No manager assigned';
+  };
+
+  const getSupervisorInfo = (supervisorData: any): string => {
+    if (!supervisorData) return 'No supervisor assigned';
+    
+    if (typeof supervisorData === 'object' && supervisorData.name) {
+      return `${supervisorData.name} (${supervisorData.email})`;
+    }
+    
+    if (typeof supervisorData === 'string') {
+      const supervisor = teamMembers.find(member => 
+        (member.id || member._id) === supervisorData
+      );
+      
+      if (supervisor) {
+        return `${supervisor.name} (${supervisor.email})`;
+      }
+      
+      return `Supervisor ID: ${supervisorData}`;
+    }
+    
+    return 'No supervisor assigned';
+  };
+
+  // Handle view details
+  const handleViewDetails = (member: User) => {
+    setViewDetailsDialog({
+      open: true,
+      user: member
+    });
   };
 
   // Show loading state
@@ -220,9 +296,14 @@ export default function Team() {
                         <Mail className="h-3 w-3" />
                         <span className="truncate">{member.email}</span>
                       </div>
-                      {/* Removed Edit button, kept only View button */}
+                      {/* Added onClick handler to View button */}
                       <div className="flex gap-1">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleViewDetails(member)}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
                           View
                         </Button>
                       </div>
@@ -234,6 +315,94 @@ export default function Team() {
           )}
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={viewDetailsDialog.open} onOpenChange={(open) => !open && setViewDetailsDialog({ open: false, user: null })}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-500" />
+              Team Member Details: {viewDetailsDialog.user?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewDetailsDialog.user && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={viewDetailsDialog.user.avatarUrl} alt={viewDetailsDialog.user.name} />
+                  <AvatarFallback className="text-lg">{getInitials(viewDetailsDialog.user.name)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-xl font-semibold">{viewDetailsDialog.user.name}</h3>
+                  <p className="text-muted-foreground">{viewDetailsDialog.user.email}</p>
+                  <Badge variant="secondary" className="mt-1">
+                    {formatRole(viewDetailsDialog.user.role)}
+                  </Badge>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">User ID</Label>
+                  <p className="text-sm text-muted-foreground">{viewDetailsDialog.user.email}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Status</Label>
+                  <p className="text-sm text-muted-foreground capitalize">{viewDetailsDialog.user.status || 'active'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Member Since</Label>
+                  <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.createdAt)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Last Updated</Label>
+                  <p className="text-sm text-muted-foreground">{formatDate(viewDetailsDialog.user.updatedAt)}</p>
+                </div>
+              </div>
+              
+              {/* Reporting Structure */}
+              <div>
+                <Label className="text-sm font-medium">Reporting Structure</Label>
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Manager: {getManagerInfo(viewDetailsDialog.user.managerId)}
+                  </p>
+                  
+                  {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && (
+                    <p className="text-sm text-muted-foreground">
+                      Supervisor: {getSupervisorInfo(viewDetailsDialog.user.supervisorId)}
+                    </p>
+                  )}
+                  
+                  {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && 
+                   !viewDetailsDialog.user.managerId && (
+                    <p className="text-sm text-amber-600">
+                      ⚠️ No manager assigned.
+                    </p>
+                  )}
+                  
+                  {(viewDetailsDialog.user.role === 'member' || viewDetailsDialog.user.role === 'team_member') && 
+                   !viewDetailsDialog.user.supervisorId && (
+                    <p className="text-sm text-amber-600">
+                      ⚠️ No supervisor assigned.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setViewDetailsDialog({ open: false, user: null })}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
