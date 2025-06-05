@@ -26,27 +26,77 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
       try {
         setLoadingAssignee(true);
         
-        // First try the synchronous version (might have cached data)
-        let user = getUserById(task.assigneeId);
+        // FIXED: Handle cases where assigneeId might be an object or string
+        let assigneeId: string;
+        let assigneeUser: User | undefined;
+
+        if (typeof task.assigneeId === 'object' && task.assigneeId !== null) {
+          // If assigneeId is already a user object, use it directly
+          console.log('TaskCard: AssigneeId is an object:', task.assigneeId);
+          assigneeUser = {
+            id: task.assigneeId.id || task.assigneeId._id,
+            name: task.assigneeId.name,
+            email: task.assigneeId.email,
+            role: task.assigneeId.role || 'member',
+            avatarUrl: task.assigneeId.avatarUrl || ''
+          };
+          assigneeId = assigneeUser.id;
+        } else if (typeof task.assigneeId === 'string') {
+          // If assigneeId is a string, proceed with normal lookup
+          assigneeId = task.assigneeId;
+          console.log('TaskCard: AssigneeId is a string:', assigneeId);
+        } else {
+          console.error('TaskCard: Invalid assigneeId type:', typeof task.assigneeId, task.assigneeId);
+          setAssignee(undefined);
+          setLoadingAssignee(false);
+          return;
+        }
+
+        // If we already have the user object, use it
+        if (assigneeUser) {
+          console.log('TaskCard: Using pre-populated assignee:', assigneeUser);
+          setAssignee(assigneeUser);
+          setLoadingAssignee(false);
+          return;
+        }
+
+        // Otherwise, fetch the user by ID
+        console.log('TaskCard: Fetching user by ID:', assigneeId);
         
-        // If we got a generic fallback user, try to fetch the real data
-        if (user && user.name.startsWith('User ')) {
-          console.log('TaskCard: Got fallback user, fetching real data for:', task.assigneeId);
-          const realUser = await getUserByIdAsync(task.assigneeId);
-          if (realUser && !realUser.name.startsWith('User ')) {
+        // First try the synchronous version (might have cached data)
+        let user = getUserById(assigneeId);
+        console.log('TaskCard: Initial user lookup:', user);
+        
+        // If we got a loading/fallback user, try to fetch the real data
+        if (!user || user.name === 'Loading...' || user.name === 'Unknown User' || user.name.startsWith('User ')) {
+          console.log('TaskCard: Fetching real user data for:', assigneeId);
+          const realUser = await getUserByIdAsync(assigneeId);
+          if (realUser) {
+            console.log('TaskCard: Real user fetched:', realUser);
             user = realUser;
+          } else {
+            console.log('TaskCard: Could not fetch real user, using fallback');
+            // Create a better fallback with the task assignee ID
+            user = {
+              id: assigneeId,
+              name: `User (${assigneeId.slice(-4)})`,
+              email: `user-${assigneeId}@example.com`,
+              role: 'member',
+              avatarUrl: ''
+            };
           }
         }
         
-        console.log('TaskCard: Assignee loaded:', user);
+        console.log('TaskCard: Final assignee set:', user);
         setAssignee(user);
       } catch (error) {
         console.error('TaskCard: Error loading assignee:', error);
         // Use fallback
+        const fallbackId = typeof task.assigneeId === 'string' ? task.assigneeId : 'unknown';
         setAssignee({
-          id: task.assigneeId,
-          name: `User ${task.assigneeId.slice(-4)}`,
-          email: `user-${task.assigneeId}@example.com`,
+          id: fallbackId,
+          name: `User (${fallbackId.toString().slice(-4)})`,
+          email: `user-${fallbackId}@example.com`,
           role: 'member',
           avatarUrl: ''
         });
@@ -57,6 +107,9 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
 
     if (task.assigneeId) {
       loadAssignee();
+    } else {
+      setAssignee(undefined);
+      setLoadingAssignee(false);
     }
   }, [task.assigneeId]);
 
@@ -139,7 +192,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
             <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
           ) : (
             <span>
-              {assignee?.name || 'Unknown User'}
+              {assignee?.name || 'No assignee'}
             </span>
           )}
         </div>
