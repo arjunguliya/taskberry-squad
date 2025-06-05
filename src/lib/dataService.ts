@@ -89,6 +89,99 @@ const refreshUserData = async () => {
     });
 
     if (response.ok) {
+      const newMember = await response.json();
+      // Map role back to frontend format
+      const mappedMember = {
+        ...newMember,
+        role: mapRoleForFrontend(newMember.role)
+      };
+      
+      toast.success('Team member added successfully');
+      return mappedMember;
+    } else {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to add team member');
+    }
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to add team member');
+    throw error;
+  }
+};
+
+export const generateReport = (title: string, type: 'daily' | 'weekly' | 'monthly'): Report => {
+  // TODO: Implement with real backend
+  const newReport: Report = {
+    id: `report${Date.now()}`,
+    title,
+    type,
+    generatedAt: new Date().toISOString(),
+    taskIds: []
+  };
+  toast.success('Report generated successfully');
+  return newReport;
+};
+
+export const getReports = (): Report[] => {
+  // TODO: Implement with real backend
+  return [];
+};
+
+// UTILITY FUNCTIONS
+export const registerUser = async (name: string, email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
+  try {
+    console.log(`Attempting to register user: ${email}`);
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    const data = await response.json();
+    console.log('Registration response:', data);
+
+    if (response.ok) {
+      // Map role to frontend format if user data is returned
+      let userWithMappedRole = data.user;
+      if (data.user && data.user.role) {
+        userWithMappedRole = {
+          ...data.user,
+          role: mapRoleForFrontend(data.user.role)
+        };
+      }
+      
+      // Store token and user data if registration is successful
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(userWithMappedRole));
+      }
+
+      return {
+        success: true,
+        message: data.message || 'Registration successful',
+        user: userWithMappedRole
+      };
+    } else {
+      return {
+        success: false,
+        message: data.message || 'Registration failed'
+      };
+    }
+  } catch (error) {
+    console.error('Registration error:', error);
+    return {
+      success: false,
+      message: 'Network error. Please try again.'
+    };
+  }
+};
+
+// Clean up localStorage initialization (remove mock data)
+export const resetDataToDefaults = () => {
+  console.log('Clearing localStorage');
+  localStorage.clear();
+};
       const userData = await response.json();
       setCurrentUser(userData);
       return userData;
@@ -202,7 +295,8 @@ export const getActiveUsers = async (): Promise<User[]> => {
   }
 };
 
-export const getUserById = async (id: string): Promise<User | undefined> => {
+// Async version for when you need to fetch from backend
+export const getUserByIdAsync = async (id: string): Promise<User | undefined> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
       headers: getAuthHeaders()
@@ -634,6 +728,7 @@ export const getAllTasks = async (): Promise<Task[]> => {
 };
 
 // Synchronous getUserById for immediate use (used by TaskCard)
+// FIXED: Renamed to avoid conflicts
 export const getUserById = (id: string): User | undefined => {
   try {
     // First, try to get from active users cache if available
@@ -657,28 +752,23 @@ export const getUserById = (id: string): User | undefined => {
   }
 };
 
-// Async version for when you need to fetch from backend
-export const getUserByIdAsync = async (id: string): Promise<User | undefined> => {
+// Get a single task by ID
+export const getTaskById = async (id: string): Promise<Task | undefined> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
       headers: getAuthHeaders()
     });
 
     if (response.ok) {
-      const user = await response.json();
-      // Map role to frontend format
-      return {
-        ...user,
-        role: mapRoleForFrontend(user.role)
-      };
+      const task = await response.json();
+      return task;
     } else {
-      // Fallback to synchronous version
-      return getUserById(id);
+      console.error('Failed to fetch task:', response.status);
+      return undefined;
     }
   } catch (error) {
-    console.error('Error fetching user:', error);
-    // Fallback to synchronous version
-    return getUserById(id);
+    console.error('Error fetching task:', error);
+    return undefined;
   }
 };
 
@@ -835,7 +925,7 @@ export const canEditTask = async (taskId: string, currentUserId: string): Promis
     if (!task) return false;
     
     // Task creator can edit (when we have createdBy field)
-    if (task.createdBy === currentUserId) {
+    if ((task as any).createdBy === currentUserId) {
       return true;
     }
     
@@ -873,7 +963,7 @@ export const canReassignTask = async (taskId: string, currentUserId: string): Pr
     if (!task) return false;
     
     // Task creator can reassign (when we have createdBy field)
-    if (task.createdBy === currentUserId) {
+    if ((task as any).createdBy === currentUserId) {
       return true;
     }
     
@@ -961,96 +1051,3 @@ export const addTeamMember = async (member: Omit<User, 'id'>): Promise<User> => 
     });
 
     if (response.ok) {
-      const newMember = await response.json();
-      // Map role back to frontend format
-      const mappedMember = {
-        ...newMember,
-        role: mapRoleForFrontend(newMember.role)
-      };
-      
-      toast.success('Team member added successfully');
-      return mappedMember;
-    } else {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to add team member');
-    }
-  } catch (error: any) {
-    toast.error(error.message || 'Failed to add team member');
-    throw error;
-  }
-};
-
-export const generateReport = (title: string, type: 'daily' | 'weekly' | 'monthly'): Report => {
-  // TODO: Implement with real backend
-  const newReport: Report = {
-    id: `report${Date.now()}`,
-    title,
-    type,
-    generatedAt: new Date().toISOString(),
-    taskIds: []
-  };
-  toast.success('Report generated successfully');
-  return newReport;
-};
-
-export const getReports = (): Report[] => {
-  // TODO: Implement with real backend
-  return [];
-};
-
-// UTILITY FUNCTIONS
-export const registerUser = async (name: string, email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
-  try {
-    console.log(`Attempting to register user: ${email}`);
-    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ name, email, password })
-    });
-
-    const data = await response.json();
-    console.log('Registration response:', data);
-
-    if (response.ok) {
-      // Map role to frontend format if user data is returned
-      let userWithMappedRole = data.user;
-      if (data.user && data.user.role) {
-        userWithMappedRole = {
-          ...data.user,
-          role: mapRoleForFrontend(data.user.role)
-        };
-      }
-      
-      // Store token and user data if registration is successful
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(userWithMappedRole));
-      }
-
-      return {
-        success: true,
-        message: data.message || 'Registration successful',
-        user: userWithMappedRole
-      };
-    } else {
-      return {
-        success: false,
-        message: data.message || 'Registration failed'
-      };
-    }
-  } catch (error) {
-    console.error('Registration error:', error);
-    return {
-      success: false,
-      message: 'Network error. Please try again.'
-    };
-  }
-};
-
-// Clean up localStorage initialization (remove mock data)
-export const resetDataToDefaults = () => {
-  console.log('Clearing localStorage');
-  localStorage.clear();
-};
