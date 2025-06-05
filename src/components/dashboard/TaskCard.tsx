@@ -147,7 +147,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
       className="overflow-hidden transition-all duration-300 hover:shadow-card-hover border 
                  hover:border-primary/20 h-full flex flex-col animate-fade-in"
     >
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 pt-3">
         <div className="flex justify-between items-start">
           <StatusBadge task={task} />
           <div className="flex items-center gap-2">
