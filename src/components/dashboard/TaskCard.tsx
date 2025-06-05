@@ -7,7 +7,7 @@ import { Task, TaskStatus, User } from "@/lib/types";
 import { formatDate, getInitials, getRelativeTime } from "@/lib/utils";
 import { CalendarIcon, CheckCircle, Clock, Edit, User as UserIcon } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getUserById, getUserByIdAsync, updateTaskStatus } from "@/lib/dataService.ts";
+import { getUserById, getUserByIdAsync, updateTaskStatus, getActiveUsers } from "@/lib/dataService.ts";
 
 interface TaskCardProps {
   task: Task;
@@ -20,33 +20,63 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
   const [assignee, setAssignee] = useState<User | undefined>(undefined);
   const [loadingAssignee, setLoadingAssignee] = useState(true);
 
-  // Load assignee information
+  // Load assignee information with better logic
   useEffect(() => {
     const loadAssignee = async () => {
       try {
         setLoadingAssignee(true);
+        console.log('TaskCard: Loading assignee for task:', task.id, 'assigneeId:', task.assigneeId);
         
-        // First try the synchronous version (might have cached data)
-        let user = getUserById(task.assigneeId);
+        let user: User | undefined = undefined;
         
-        // If we got a generic fallback user, try to fetch the real data
-        if (user && user.name.startsWith('User ')) {
-          console.log('TaskCard: Got fallback user, fetching real data for:', task.assigneeId);
-          const realUser = await getUserByIdAsync(task.assigneeId);
-          if (realUser && !realUser.name.startsWith('User ')) {
-            user = realUser;
+        // Strategy 1: Try to get from active users list (most reliable)
+        try {
+          const activeUsers = await getActiveUsers();
+          console.log('TaskCard: Active users loaded:', activeUsers.length);
+          user = activeUsers.find(u => u.id === task.assigneeId || u._id === task.assigneeId);
+          console.log('TaskCard: Found user in active users:', user?.name);
+        } catch (error) {
+          console.log('TaskCard: Failed to get active users, trying individual fetch');
+        }
+        
+        // Strategy 2: If not found, try individual fetch
+        if (!user) {
+          try {
+            user = await getUserByIdAsync(task.assigneeId);
+            console.log('TaskCard: User from async fetch:', user?.name);
+          } catch (error) {
+            console.log('TaskCard: Async fetch failed, trying sync');
           }
         }
         
-        console.log('TaskCard: Assignee loaded:', user);
+        // Strategy 3: Fallback to sync version
+        if (!user) {
+          user = getUserById(task.assigneeId);
+          console.log('TaskCard: User from sync fetch:', user?.name);
+        }
+        
+        // Only show "Unknown User" if all strategies failed
+        if (!user) {
+          console.warn('TaskCard: No user found for assigneeId:', task.assigneeId);
+          user = {
+            id: task.assigneeId,
+            name: 'Unknown User',
+            email: 'unknown@example.com',
+            role: 'member',
+            avatarUrl: ''
+          };
+        } else {
+          console.log('TaskCard: Successfully loaded assignee:', user.name);
+        }
+        
         setAssignee(user);
       } catch (error) {
         console.error('TaskCard: Error loading assignee:', error);
-        // Use fallback
+        // Final fallback
         setAssignee({
           id: task.assigneeId,
-          name: `User ${task.assigneeId.slice(-4)}`,
-          email: `user-${task.assigneeId}@example.com`,
+          name: 'Unknown User',
+          email: 'unknown@example.com',
           role: 'member',
           avatarUrl: ''
         });
@@ -57,6 +87,8 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
 
     if (task.assigneeId) {
       loadAssignee();
+    } else {
+      setLoadingAssignee(false);
     }
   }, [task.assigneeId]);
 
@@ -91,26 +123,27 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
 
   return (
     <Card 
-      className="overflow-hidden transition-all duration-300 hover:shadow-card-hover border 
+      className="overflow-hidden transition-all duration-300 hover:shadow-md border 
                  hover:border-primary/20 h-full flex flex-col animate-fade-in"
     >
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
+      {/* Compact Header */}
+      <CardHeader className="pb-3 pt-3">
+        <div className="flex justify-between items-start mb-2">
           <StatusBadge task={task} />
           <div className="flex items-center gap-2">
             {loadingAssignee ? (
-              <div className="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
+              <div className="h-6 w-6 rounded-full bg-muted animate-pulse"></div>
             ) : (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="h-6 w-6">
                         {assignee?.avatarUrl ? (
                           <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
                         ) : (
-                          <AvatarFallback>
-                            {assignee ? getInitials(assignee.name) : <UserIcon className="h-4 w-4" />}
+                          <AvatarFallback className="text-xs">
+                            {assignee ? getInitials(assignee.name) : <UserIcon className="h-3 w-3" />}
                           </AvatarFallback>
                         )}
                       </Avatar>
@@ -124,49 +157,56 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
             )}
           </div>
         </div>
-        <h3 className="font-medium text-lg mt-2 line-clamp-1 text-left">{task.title}</h3>
+        <h3 className="font-medium text-base leading-tight line-clamp-1 text-left">{task.title}</h3>
       </CardHeader>
       
-      <CardContent className="pb-4 flex-grow">
-        <p className="text-muted-foreground text-sm line-clamp-2 text-left mb-3">
-          {task.description || "No description provided"}
-        </p>
+      {/* Compact Content */}
+      <CardContent className="pb-2 flex-grow">
+        {/* Description - only show if exists and keep it short */}
+        {task.description && (
+          <p className="text-muted-foreground text-xs line-clamp-1 text-left mb-2">
+            {task.description}
+          </p>
+        )}
         
-        {/* Assignee Information */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-          <UserIcon className="h-3 w-3" />
+        {/* Assignee Information - Compact */}
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <UserIcon className="h-3 w-3 flex-shrink-0" />
           {loadingAssignee ? (
-            <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
+            <div className="h-3 w-16 bg-muted rounded animate-pulse"></div>
           ) : (
-            <span>
+            <span className="truncate">
               {assignee?.name || 'Unknown User'}
             </span>
           )}
         </div>
       </CardContent>
       
-      <CardFooter className="pt-2 border-t flex-col items-start gap-2">
-        <div className="w-full flex justify-between items-center text-xs text-muted-foreground">
+      {/* Compact Footer */}
+      <CardFooter className="pt-2 pb-3 border-t">
+        {/* Dates - Compact single row */}
+        <div className="w-full flex justify-between items-center text-xs text-muted-foreground mb-2">
           <div className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" />
-            <span>Assigned: {formatDate(task.assignedDate)}</span>
+            <span className="truncate">{formatDate(task.assignedDate)}</span>
           </div>
           <div className={`flex items-center gap-1 ${getStatusColor()}`}>
             <Clock className="h-3 w-3" />
-            <span>Due: {getRelativeTime(task.targetDate)}</span>
+            <span className="truncate">{getRelativeTime(task.targetDate)}</span>
           </div>
         </div>
         
-        <div className="w-full flex justify-between items-center mt-2">
+        {/* Action Buttons - Compact */}
+        <div className="w-full flex justify-between items-center">
           <div className="text-xs text-muted-foreground">
             {task.status === TaskStatus.COMPLETED && (
-              <span className="text-green-600 font-medium">✓ Completed</span>
+              <span className="text-green-600 font-medium">✓ Done</span>
             )}
             {task.status === TaskStatus.IN_PROGRESS && (
-              <span className="text-blue-600 font-medium">⏳ In Progress</span>
+              <span className="text-blue-600 font-medium">⏳ Active</span>
             )}
             {task.status === TaskStatus.NOT_STARTED && (
-              <span className="text-gray-600 font-medium">⭕ Not Started</span>
+              <span className="text-gray-600 font-medium">⭕ Pending</span>
             )}
           </div>
           
@@ -178,10 +218,10 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 w-7 p-0"
+                      className="h-6 w-6 p-0"
                       onClick={() => onEdit(task)}
                     >
-                      <Edit className="h-3.5 w-3.5" />
+                      <Edit className="h-3 w-3" />
                       <span className="sr-only">Edit</span>
                     </Button>
                   </TooltipTrigger>
@@ -199,12 +239,12 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 px-2 text-xs hover:bg-green-50 hover:text-green-700"
+                      className="h-6 px-2 text-xs hover:bg-green-50 hover:text-green-700"
                       onClick={() => handleStatusUpdate(TaskStatus.COMPLETED)}
                       disabled={isUpdating}
                     >
-                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                      {isUpdating ? "..." : "Complete"}
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {isUpdating ? "..." : "Done"}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -219,11 +259,11 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-7 px-2 text-xs hover:bg-blue-50 hover:text-blue-700"
+                      className="h-6 px-2 text-xs hover:bg-blue-50 hover:text-blue-700"
                       onClick={() => handleStatusUpdate(TaskStatus.IN_PROGRESS)}
                       disabled={isUpdating}
                     >
-                      <Clock className="h-3.5 w-3.5 mr-1" />
+                      <Clock className="h-3 w-3 mr-1" />
                       {isUpdating ? "..." : "Reopen"}
                     </Button>
                   </TooltipTrigger>
