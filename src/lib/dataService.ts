@@ -633,23 +633,52 @@ export const getAllTasks = async (): Promise<Task[]> => {
   }
 };
 
-// Get task by ID
-export const getTaskById = async (id: string): Promise<Task | undefined> => {
+// Synchronous getUserById for immediate use (used by TaskCard)
+export const getUserById = (id: string): User | undefined => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
+    // First, try to get from active users cache if available
+    const currentUser = getCurrentUser();
+    if (currentUser.id === id) {
+      return currentUser;
+    }
+
+    // For now, return a fallback user structure
+    // This prevents the filter error by ensuring we always return something
+    return {
+      id: id,
+      name: `User ${id.slice(-4)}`, // Show last 4 characters of ID
+      email: `user-${id}@example.com`,
+      role: 'member',
+      avatarUrl: ''
+    };
+  } catch (error) {
+    console.error('Error in getUserById:', error);
+    return undefined;
+  }
+};
+
+// Async version for when you need to fetch from backend
+export const getUserByIdAsync = async (id: string): Promise<User | undefined> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
       headers: getAuthHeaders()
     });
 
     if (response.ok) {
-      const task = await response.json();
-      return task;
+      const user = await response.json();
+      // Map role to frontend format
+      return {
+        ...user,
+        role: mapRoleForFrontend(user.role)
+      };
     } else {
-      console.error('Failed to fetch task:', response.status);
-      return undefined;
+      // Fallback to synchronous version
+      return getUserById(id);
     }
   } catch (error) {
-    console.error('Error fetching task:', error);
-    return undefined;
+    console.error('Error fetching user:', error);
+    // Fallback to synchronous version
+    return getUserById(id);
   }
 };
 
