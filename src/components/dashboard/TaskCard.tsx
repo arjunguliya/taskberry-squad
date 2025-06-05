@@ -147,7 +147,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
       className="overflow-hidden transition-all duration-300 hover:shadow-card-hover border 
                  hover:border-primary/20 h-full flex flex-col animate-fade-in"
     >
-      <CardHeader className="pb-1">
+      <CardHeader className="pb-1 pt-1">
         <div className="flex justify-between items-start">
           <StatusBadge task={task} />
           <div className="flex items-center gap-2">
@@ -198,7 +198,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
         </div>
       </CardContent>
       
-      <CardFooter className="pt-2 border-t flex-col items-start gap-2">
+      <CardFooter className="pt-2 pb-1 border-t flex-col items-start gap-2">
         <div className="w-full flex justify-between items-center text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" />
