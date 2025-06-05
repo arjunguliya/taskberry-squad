@@ -147,7 +147,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
       className="overflow-hidden transition-all duration-300 hover:shadow-card-hover border 
                  hover:border-primary/20 h-full flex flex-col animate-fade-in"
     >
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1">
         <div className="flex justify-between items-start">
           <StatusBadge task={task} />
           <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
         <h3 className="font-medium text-lg mt-2 line-clamp-1 text-left">{task.title}</h3>
       </CardHeader>
       
-      <CardContent className="pb-4 flex-grow">
+      <CardContent className="pb-2 flex-grow">
         <p className="text-muted-foreground text-sm line-clamp-2 text-left mb-3">
           {task.description || "No description provided"}
         </p>
@@ -198,7 +198,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
         </div>
       </CardContent>
       
-      <CardFooter className="pt-2 border-t flex-col items-start gap-2">
+      <CardFooter className="pt-1 border-t flex-col items-start gap-2">
         <div className="w-full flex justify-between items-center text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" />
