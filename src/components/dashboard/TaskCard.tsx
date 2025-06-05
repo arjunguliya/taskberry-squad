@@ -7,7 +7,7 @@ import { Task, TaskStatus, User } from "@/lib/types";
 import { formatDate, getInitials, getRelativeTime } from "@/lib/utils";
 import { CalendarIcon, CheckCircle, Clock, Edit, User as UserIcon } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getUserById, getUserByIdAsync, updateTaskStatus, getActiveUsers } from "@/lib/dataService.ts";
+import { getCurrentUser, updateTaskStatus } from "@/lib/dataService.ts";
 
 interface TaskCardProps {
   task: Task;
@@ -20,7 +20,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
   const [assignee, setAssignee] = useState<User | undefined>(undefined);
   const [loadingAssignee, setLoadingAssignee] = useState(true);
 
-  // Load assignee information with better logic
+  // Load assignee information with improved logic and better fallback
   useEffect(() => {
     const loadAssignee = async () => {
       try {
@@ -28,53 +28,110 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
         console.log('TaskCard: Loading assignee for task:', task.id, 'assigneeId:', task.assigneeId);
         
         let user: User | undefined = undefined;
+        const currentUser = getCurrentUser();
         
-        // Strategy 1: Try to get from active users list (most reliable)
-        try {
-          const activeUsers = await getActiveUsers();
-          console.log('TaskCard: Active users loaded:', activeUsers.length);
-          user = activeUsers.find(u => u.id === task.assigneeId || u._id === task.assigneeId);
-          console.log('TaskCard: Found user in active users:', user?.name);
-        } catch (error) {
-          console.log('TaskCard: Failed to get active users, trying individual fetch');
+        // Strategy 1: Check if assignee is current user
+        if (currentUser && (currentUser.id === task.assigneeId || currentUser._id === task.assigneeId)) {
+          console.log('TaskCard: Assignee is current user');
+          user = currentUser;
         }
         
-        // Strategy 2: If not found, try individual fetch
+        // Strategy 2: Try to fetch from backend API directly
         if (!user) {
           try {
-            user = await getUserByIdAsync(task.assigneeId);
-            console.log('TaskCard: User from async fetch:', user?.name);
+            console.log('TaskCard: Fetching user from API...');
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://taskberry-backend.onrender.com';
+            const token = localStorage.getItem('token');
+            
+            const response = await fetch(`${API_BASE_URL}/api/users/${task.assigneeId}`, {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (response.ok) {
+              const userData = await response.json();
+              console.log('TaskCard: User data from API:', userData);
+              
+              // Handle both MongoDB _id and regular id
+              user = {
+                id: userData.id || userData._id,
+                name: userData.name,
+                email: userData.email,
+                role: userData.role,
+                avatarUrl: userData.avatarUrl,
+                supervisorId: userData.supervisorId,
+                managerId: userData.managerId
+              };
+              console.log('TaskCard: Processed user:', user);
+            } else {
+              console.log('TaskCard: API response not ok:', response.status);
+            }
           } catch (error) {
-            console.log('TaskCard: Async fetch failed, trying sync');
+            console.log('TaskCard: API fetch failed:', error);
           }
         }
         
-        // Strategy 3: Fallback to sync version
+        // Strategy 3: Try to get from active users list
         if (!user) {
-          user = getUserById(task.assigneeId);
-          console.log('TaskCard: User from sync fetch:', user?.name);
+          try {
+            console.log('TaskCard: Trying to get from active users...');
+            const { getActiveUsers } = await import('@/lib/dataService');
+            const activeUsers = await getActiveUsers();
+            console.log('TaskCard: Active users count:', activeUsers.length);
+            console.log('TaskCard: Looking for user with ID:', task.assigneeId);
+            
+            user = activeUsers.find(u => {
+              const matches = u.id === task.assigneeId || u._id === task.assigneeId;
+              if (matches) {
+                console.log('TaskCard: Found matching user:', u.name);
+              }
+              return matches;
+            });
+            
+            if (user) {
+              console.log('TaskCard: Found user in active users:', user.name);
+            } else {
+              console.log('TaskCard: User not found in active users. Available users:', 
+                activeUsers.map(u => ({ id: u.id, _id: u._id, name: u.name })));
+            }
+          } catch (error) {
+            console.log('TaskCard: Failed to get active users:', error);
+          }
         }
         
-        // Only show "Unknown User" if all strategies failed
+        // Strategy 4: Create a meaningful fallback based on assigneeId
         if (!user) {
-          console.warn('TaskCard: No user found for assigneeId:', task.assigneeId);
+          console.log('TaskCard: Creating fallback user for assigneeId:', task.assigneeId);
+          
+          // Try to extract meaningful info from the assigneeId
+          let fallbackName = 'Unknown User';
+          
+          // If assigneeId looks like a MongoDB ObjectId, use last 4 characters
+          if (task.assigneeId && task.assigneeId.length === 24) {
+            fallbackName = `User-${task.assigneeId.slice(-4)}`;
+          } else if (task.assigneeId && task.assigneeId.length > 4) {
+            fallbackName = `User-${task.assigneeId.slice(-4)}`;
+          }
+          
           user = {
             id: task.assigneeId,
-            name: 'Unknown User',
-            email: 'unknown@example.com',
+            name: fallbackName,
+            email: `${task.assigneeId}@example.com`,
             role: 'member',
             avatarUrl: ''
           };
-        } else {
-          console.log('TaskCard: Successfully loaded assignee:', user.name);
         }
         
+        console.log('TaskCard: Final assignee:', user?.name);
         setAssignee(user);
+        
       } catch (error) {
         console.error('TaskCard: Error loading assignee:', error);
         // Final fallback
         setAssignee({
-          id: task.assigneeId,
+          id: task.assigneeId || 'unknown',
           name: 'Unknown User',
           email: 'unknown@example.com',
           role: 'member',
@@ -88,6 +145,14 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
     if (task.assigneeId) {
       loadAssignee();
     } else {
+      console.log('TaskCard: No assigneeId found for task');
+      setAssignee({
+        id: 'unassigned',
+        name: 'Unassigned',
+        email: 'unassigned@example.com',
+        role: 'member',
+        avatarUrl: ''
+      });
       setLoadingAssignee(false);
     }
   }, [task.assigneeId]);
@@ -126,19 +191,19 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
       className="overflow-hidden transition-all duration-300 hover:shadow-md border 
                  hover:border-primary/20 h-full flex flex-col animate-fade-in"
     >
-      {/* Compact Header */}
-      <CardHeader className="pb-3 pt-3">
-        <div className="flex justify-between items-start mb-2">
+      {/* Header with better spacing */}
+      <CardHeader className="pb-3 pt-4">
+        <div className="flex justify-between items-start mb-3">
           <StatusBadge task={task} />
           <div className="flex items-center gap-2">
             {loadingAssignee ? (
-              <div className="h-6 w-6 rounded-full bg-muted animate-pulse"></div>
+              <div className="h-7 w-7 rounded-full bg-muted animate-pulse"></div>
             ) : (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
-                      <Avatar className="h-6 w-6">
+                      <Avatar className="h-7 w-7">
                         {assignee?.avatarUrl ? (
                           <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
                         ) : (
@@ -157,23 +222,23 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
             )}
           </div>
         </div>
-        <h3 className="font-medium text-base leading-tight line-clamp-1 text-left">{task.title}</h3>
+        <h3 className="font-medium text-base leading-tight line-clamp-2 text-left">{task.title}</h3>
       </CardHeader>
       
-      {/* Compact Content */}
-      <CardContent className="pb-2 flex-grow">
-        {/* Description - only show if exists and keep it short */}
+      {/* Content with proper spacing */}
+      <CardContent className="pb-3 flex-grow">
+        {/* Description */}
         {task.description && (
-          <p className="text-muted-foreground text-xs line-clamp-1 text-left mb-2">
+          <p className="text-muted-foreground text-sm line-clamp-2 text-left mb-3">
             {task.description}
           </p>
         )}
         
-        {/* Assignee Information - Compact */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        {/* Assignee Information */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <UserIcon className="h-3 w-3 flex-shrink-0" />
           {loadingAssignee ? (
-            <div className="h-3 w-16 bg-muted rounded animate-pulse"></div>
+            <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
           ) : (
             <span className="truncate">
               {assignee?.name || 'Unknown User'}
@@ -182,25 +247,25 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
         </div>
       </CardContent>
       
-      {/* Compact Footer */}
-      <CardFooter className="pt-2 pb-3 border-t">
-        {/* Dates - Compact single row */}
-        <div className="w-full flex justify-between items-center text-xs text-muted-foreground mb-2">
+      {/* Footer with proper spacing */}
+      <CardFooter className="pt-3 pb-4 border-t">
+        {/* Dates row */}
+        <div className="w-full flex justify-between items-center text-xs text-muted-foreground mb-3">
           <div className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" />
-            <span className="truncate">{formatDate(task.assignedDate)}</span>
+            <span>Assigned: {formatDate(task.assignedDate)}</span>
           </div>
           <div className={`flex items-center gap-1 ${getStatusColor()}`}>
             <Clock className="h-3 w-3" />
-            <span className="truncate">{getRelativeTime(task.targetDate)}</span>
+            <span>Due: {getRelativeTime(task.targetDate)}</span>
           </div>
         </div>
         
-        {/* Action Buttons - Compact */}
+        {/* Action Buttons row */}
         <div className="w-full flex justify-between items-center">
           <div className="text-xs text-muted-foreground">
             {task.status === TaskStatus.COMPLETED && (
-              <span className="text-green-600 font-medium">✓ Done</span>
+              <span className="text-green-600 font-medium">✓ Completed</span>
             )}
             {task.status === TaskStatus.IN_PROGRESS && (
               <span className="text-blue-600 font-medium">⏳ Active</span>
@@ -218,10 +283,10 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-6 w-6 p-0"
+                      className="h-7 w-7 p-0"
                       onClick={() => onEdit(task)}
                     >
-                      <Edit className="h-3 w-3" />
+                      <Edit className="h-3.5 w-3.5" />
                       <span className="sr-only">Edit</span>
                     </Button>
                   </TooltipTrigger>
@@ -239,12 +304,12 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-6 px-2 text-xs hover:bg-green-50 hover:text-green-700"
+                      className="h-7 px-2 text-xs hover:bg-green-50 hover:text-green-700"
                       onClick={() => handleStatusUpdate(TaskStatus.COMPLETED)}
                       disabled={isUpdating}
                     >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      {isUpdating ? "..." : "Done"}
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                      {isUpdating ? "..." : "Complete"}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -259,11 +324,11 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-6 px-2 text-xs hover:bg-blue-50 hover:text-blue-700"
+                      className="h-7 px-2 text-xs hover:bg-blue-50 hover:text-blue-700"
                       onClick={() => handleStatusUpdate(TaskStatus.IN_PROGRESS)}
                       disabled={isUpdating}
                     >
-                      <Clock className="h-3 w-3 mr-1" />
+                      <Clock className="h-3.5 w-3.5 mr-1" />
                       {isUpdating ? "..." : "Reopen"}
                     </Button>
                   </TooltipTrigger>
