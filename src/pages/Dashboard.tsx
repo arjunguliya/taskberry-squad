@@ -13,7 +13,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { Task, TaskStatus, User } from "@/lib/types";
 import { calculateStatusCounts, getInitials } from "@/lib/utils";
 import { BarChart, CalendarClock, CheckCircle, Clock, ListTodo, Plus, Users, X } from "lucide-react";
-import { getAllTasks, getTeamMembers } from "@/lib/dataService.ts";
+import { getTasksForTeam, getTeamMembers, updateTaskStatus, getAllTasks, getTasksForUser } from "@/lib/dataService.ts";
 import { TaskDetailsList } from "@/components/dashboard/TaskDetailsList";
 import { TeamMembersList } from "@/components/dashboard/TeamMembersList";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [selectedTask, setSelectedTask] = useState<Task | undefined>(undefined);
   const [refreshKey, setRefreshKey] = useState(0);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [teamTasks, setTeamTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
@@ -47,8 +47,6 @@ export default function Dashboard() {
     const loadDashboardData = async () => {
       try {
         console.log('Dashboard: Loading data for user:', currentUser?.name);
-        setLoading(true);
-        setError(null);
         
         if (!currentUser?.id) {
           console.error('Dashboard: No current user ID available');
@@ -57,49 +55,64 @@ export default function Dashboard() {
           return;
         }
 
-        // Load tasks
-        try {
-          console.log('Loading tasks...');
-          const tasks = await getAllTasks();
-          console.log('Dashboard: Loaded tasks:', tasks);
-          
-          // Ensure we have an array
-          if (Array.isArray(tasks)) {
-            setAllTasks(tasks);
-          } else {
-            console.error('getAllTasks did not return an array:', tasks);
-            setAllTasks([]);
-          }
-        } catch (taskError) {
-          console.error('Error loading tasks:', taskError);
-          setAllTasks([]);
-        }
+        setError(null);
+        
+        // Load team members and tasks based on user role
+        let members: User[] = [];
+        let tasks: Task[] = [];
 
-        // Load team members
         try {
-          console.log('Loading team members...');
-          const members = await getTeamMembers(currentUser.id);
-          console.log('Dashboard: Loaded team members:', members);
-          
-          // Ensure we have an array
-          if (Array.isArray(members)) {
-            setTeamMembers(members);
-          } else {
-            console.error('getTeamMembers did not return an array:', members);
-            setTeamMembers([]);
+          switch (currentUser.role) {
+            case 'super_admin':
+            case 'manager':
+              // Admin and managers see all team members and tasks
+              console.log('Dashboard: Loading data for admin/manager');
+              try {
+                members = await getTeamMembers(currentUser.id);
+                tasks = await getAllTasks();
+              } catch (error) {
+                console.log('Dashboard: Fallback to team-specific data');
+                members = await getTeamMembers(currentUser.id);
+                tasks = await getTasksForTeam(currentUser.id);
+              }
+              break;
+              
+            case 'supervisor':
+              // Supervisors see their team
+              console.log('Dashboard: Loading data for supervisor');
+              members = await getTeamMembers(currentUser.id);
+              tasks = await getTasksForTeam(currentUser.id);
+              break;
+              
+            case 'member':
+            default:
+              // Members see limited data
+              console.log('Dashboard: Loading data for member');
+              members = []; // Members don't manage other members
+              tasks = await getTasksForUser(currentUser.id);
+              break;
           }
-        } catch (teamError) {
-          console.error('Error loading team members:', teamError);
-          setTeamMembers([]);
+        } catch (dataError) {
+          console.error('Dashboard: Error loading specific data:', dataError);
+          // Fallback to minimal data
+          members = [];
+          tasks = [];
         }
         
-        console.log('Dashboard: Data loaded successfully');
+        setTeamMembers(Array.isArray(members) ? members : []);
+        setTeamTasks(Array.isArray(tasks) ? tasks : []);
+        
+        console.log('Dashboard: Data loaded successfully', {
+          members: members.length,
+          tasks: tasks.length
+        });
+        
       } catch (error) {
         console.error('Dashboard: Error loading data:', error);
         setError('Failed to load dashboard data');
         // Set empty arrays as fallback
         setTeamMembers([]);
-        setAllTasks([]);
+        setTeamTasks([]);
       } finally {
         setLoading(false);
       }
@@ -111,7 +124,7 @@ export default function Dashboard() {
   }, [currentUser, refreshKey]);
 
   // Calculate stats safely
-  const statusCounts = Array.isArray(allTasks) && allTasks.length > 0 ? calculateStatusCounts(allTasks) : {
+  const statusCounts = teamTasks.length > 0 ? calculateStatusCounts(teamTasks) : {
     completed: 0,
     inProgress: 0,
     overdue: 0,
@@ -119,28 +132,18 @@ export default function Dashboard() {
   };
   
   // Filter tasks by status safely
-  const completedTasks = Array.isArray(allTasks) ? allTasks.filter(task => 
-    task && task.status === TaskStatus.COMPLETED
-  ) : [];
-  
-  const inProgressTasks = Array.isArray(allTasks) ? allTasks.filter(task => 
-    task && task.status === TaskStatus.IN_PROGRESS
-  ) : [];
-  
-  const overdueTasks = Array.isArray(allTasks) ? allTasks.filter(task => {
-    if (!task || !task.targetDate) return false;
+  const completedTasks = teamTasks.filter(task => task.status === TaskStatus.COMPLETED);
+  const inProgressTasks = teamTasks.filter(task => task.status === TaskStatus.IN_PROGRESS);
+  const overdueTasks = teamTasks.filter(task => {
     const today = new Date();
     const dueDate = new Date(task.targetDate);
     return dueDate < today && task.status !== TaskStatus.COMPLETED;
-  }) : [];
+  });
   
   // Recent tasks (limited to 5)
-  const recentTasks = Array.isArray(allTasks) ? [...allTasks]
-    .sort((a, b) => {
-      if (!a.lastUpdated || !b.lastUpdated) return 0;
-      return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
-    })
-    .slice(0, 5) : [];
+  const recentTasks = [...teamTasks]
+    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+    .slice(0, 5);
 
   const handleTaskSuccess = () => {
     setRefreshKey(prev => prev + 1);
@@ -193,23 +196,6 @@ export default function Dashboard() {
     );
   }
 
-  // Show error state
-  if (error) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground text-red-600">{error}</p>
-          </div>
-          <Button onClick={() => setRefreshKey(prev => prev + 1)} variant="outline">
-            Retry
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -231,6 +217,20 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">{error}</p>
+          <Button 
+            onClick={() => setRefreshKey(prev => prev + 1)} 
+            variant="outline"
+            size="sm"
+            className="mt-2"
+          >
+            Try Again
+          </Button>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card 
@@ -244,7 +244,7 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Array.isArray(teamMembers) ? teamMembers.length : 0}</div>
+            <div className="text-2xl font-bold">{teamMembers.length}</div>
             <div className="mt-2">
               <AvatarGroup users={teamMembers} />
             </div>
@@ -308,7 +308,9 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="recent">Recent Tasks</TabsTrigger>
-            <TabsTrigger value="all">All Tasks</TabsTrigger>
+            <TabsTrigger value="team">
+              {currentUser.role === 'member' ? 'My Tasks' : 'Team Tasks'}
+            </TabsTrigger>
           </TabsList>
           <Button variant="ghost" size="sm" onClick={() => window.location.href = "/tasks"}>
             View all
@@ -336,9 +338,9 @@ export default function Dashboard() {
             )}
           </div>
         </TabsContent>
-        <TabsContent value="all" className="space-y-4">
+        <TabsContent value="team" className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {allTasks.slice(0, 6).map(task => (
+            {teamTasks.slice(0, 6).map(task => (
               <TaskCard 
                 key={`${task.id}-${refreshKey}`} 
                 task={task} 
@@ -346,9 +348,14 @@ export default function Dashboard() {
                 refetch={handleTaskSuccess}
               />
             ))}
-            {allTasks.length === 0 && (
+            {teamTasks.length === 0 && (
               <div className="col-span-full py-10 text-center">
-                <p className="text-muted-foreground">No tasks found. Create a new task to get started.</p>
+                <p className="text-muted-foreground">
+                  {currentUser.role === 'member' ? 
+                    'No tasks assigned to you. Check back later or contact your supervisor.' :
+                    'No team tasks found. Create a new task to get started.'
+                  }
+                </p>
                 <Button className="mt-4" onClick={handleNewTask}>
                   <Plus className="h-4 w-4 mr-1" />
                   Create Task
@@ -373,7 +380,7 @@ export default function Dashboard() {
           <DialogHeaderComponent>
             <DialogTitleComponent className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Team Members ({Array.isArray(teamMembers) ? teamMembers.length : 0})
+              Team Members ({teamMembers.length})
             </DialogTitleComponent>
           </DialogHeaderComponent>
           <TeamMembersList members={teamMembers} />
@@ -400,39 +407,4 @@ export default function Dashboard() {
 
       {/* In Progress Tasks Dialog */}
       <DialogComponent open={inProgressTasksDialogOpen} onOpenChange={setInProgressTasksDialogOpen}>
-        <DialogContentComponent className="sm:max-w-[600px]">
-          <DialogHeaderComponent>
-            <DialogTitleComponent className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              In Progress Tasks ({inProgressTasks.length})
-            </DialogTitleComponent>
-          </DialogHeaderComponent>
-          <TaskDetailsList 
-            tasks={inProgressTasks} 
-            onEdit={handleEditTask} 
-            emptyMessage="No in-progress tasks found."
-            refetch={handleTaskSuccess}
-          />
-        </DialogContentComponent>
-      </DialogComponent>
-
-      {/* Overdue Tasks Dialog */}
-      <DialogComponent open={overdueTasksDialogOpen} onOpenChange={setOverdueTasksDialogOpen}>
-        <DialogContentComponent className="sm:max-w-[600px]">
-          <DialogHeaderComponent>
-            <DialogTitleComponent className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5" />
-              Overdue Tasks ({overdueTasks.length})
-            </DialogTitleComponent>
-          </DialogHeaderComponent>
-          <TaskDetailsList 
-            tasks={overdueTasks} 
-            onEdit={handleEditTask} 
-            emptyMessage="No overdue tasks found."
-            refetch={handleTaskSuccess}
-          />
-        </DialogContentComponent>
-      </DialogComponent>
-    </div>
-  );
-}
+        <DialogContentComponent className
