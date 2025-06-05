@@ -49,6 +49,32 @@ const mapRoleForFrontend = (backendRole: string): string => {
   return roleMap[backendRole] || backendRole;
 };
 
+// USER CACHING FUNCTIONS
+// Helper function to get all users synchronously (from cache/localStorage)
+const getAllUsersSync = (): User[] => {
+  try {
+    // Get cached users from localStorage
+    const cachedUsers = localStorage.getItem('cachedUsers');
+    if (cachedUsers) {
+      return JSON.parse(cachedUsers);
+    }
+    return [];
+  } catch (error) {
+    console.error('Error getting cached users:', error);
+    return [];
+  }
+};
+
+// Helper function to cache users
+export const cacheUsers = (users: User[]): void => {
+  try {
+    localStorage.setItem('cachedUsers', JSON.stringify(users));
+    console.log('Cached', users.length, 'users');
+  } catch (error) {
+    console.error('Error caching users:', error);
+  }
+};
+
 // USER FUNCTIONS
 export const getCurrentUser = (): User => {
   try {
@@ -100,6 +126,92 @@ const refreshUserData = async () => {
   }
 };
 
+// FIXED: Synchronous version for immediate lookups with caching
+export const getUserById = (id: string): User | undefined => {
+  // First check if we have the user in our current users cache
+  try {
+    // Check if it's the current user first
+    const currentUser = getCurrentUser();
+    if (currentUser && (currentUser.id === id || currentUser._id === id)) {
+      return {
+        ...currentUser,
+        id: currentUser.id || currentUser._id
+      };
+    }
+
+    // Check cached users
+    const allUsers = getAllUsersSync();
+    const user = allUsers.find(user => (user.id || user._id) === id);
+    
+    if (user) {
+      return {
+        ...user,
+        id: user.id || user._id,
+        role: mapRoleForFrontend(user.role)
+      };
+    }
+    
+    // Return a fallback user for immediate display
+    console.log('getUserById: No cached user found for', id, '- returning fallback');
+    return {
+      id: id,
+      name: `Loading...`,
+      email: `loading@example.com`,
+      role: 'member',
+      avatarUrl: ''
+    };
+  } catch (error) {
+    console.error('Error in getUserById:', error);
+    return {
+      id: id,
+      name: `Unknown User`,
+      email: `user-${String(id).slice(-4)}@example.com`,
+      role: 'member',
+      avatarUrl: ''
+    };
+  }
+};
+
+// Async version for fetching from API
+export const getUserByIdAsync = async (id: string): Promise<User | undefined> => {
+  try {
+    console.log('Fetching user by ID:', id);
+    const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (response.ok) {
+      const user = await response.json();
+      console.log('User fetched successfully:', user);
+      
+      // Map role to frontend format and ensure we have proper ID
+      const mappedUser = {
+        ...user,
+        id: user.id || user._id,
+        role: mapRoleForFrontend(user.role)
+      };
+
+      // Update cache with this user
+      const cachedUsers = getAllUsersSync();
+      const existingUserIndex = cachedUsers.findIndex(u => (u.id || u._id) === id);
+      if (existingUserIndex >= 0) {
+        cachedUsers[existingUserIndex] = mappedUser;
+      } else {
+        cachedUsers.push(mappedUser);
+      }
+      cacheUsers(cachedUsers);
+
+      return mappedUser;
+    } else {
+      console.error('Failed to fetch user:', response.status, response.statusText);
+      return undefined;
+    }
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    return undefined;
+  }
+};
+
 export const getAllUsers = async (): Promise<User[]> => {
   try {
     console.log('Fetching all users...');
@@ -114,8 +226,12 @@ export const getAllUsers = async (): Promise<User[]> => {
       // Map backend roles to frontend roles
       const mappedUsers = data.map((user: User) => ({
         ...user,
+        id: user.id || user._id,
         role: mapRoleForFrontend(user.role)
       }));
+      
+      // Cache the users for synchronous access
+      cacheUsers(mappedUsers);
       
       return mappedUsers;
     } else {
@@ -128,7 +244,7 @@ export const getAllUsers = async (): Promise<User[]> => {
   }
 };
 
-// Get only active users with role mapping
+// Get only active users with role mapping and caching
 export const getActiveUsers = async (): Promise<User[]> => {
   try {
     console.log('Fetching active users...');
@@ -143,8 +259,12 @@ export const getActiveUsers = async (): Promise<User[]> => {
       // Map backend roles to frontend roles
       const mappedUsers = data.map((user: User) => ({
         ...user,
+        id: user.id || user._id,
         role: mapRoleForFrontend(user.role)
       }));
+      
+      // Cache the users for synchronous access
+      cacheUsers(mappedUsers);
       
       console.log('Active users with mapped roles:', mappedUsers);
       return mappedUsers;
@@ -163,8 +283,12 @@ export const getActiveUsers = async (): Promise<User[]> => {
         const activeUsers = data.filter((user: User) => user.status === 'active');
         const mappedUsers = activeUsers.map((user: User) => ({
           ...user,
+          id: user.id || user._id,
           role: mapRoleForFrontend(user.role)
         }));
+        
+        // Cache the users
+        cacheUsers(mappedUsers);
         
         console.log('Active users filtered and mapped:', mappedUsers);
         return mappedUsers;
@@ -175,55 +299,6 @@ export const getActiveUsers = async (): Promise<User[]> => {
   } catch (error) {
     handleApiError(error);
     return [];
-  }
-};
-
-// Synchronous getUserById for immediate use (used by TaskCard and other components)
-export const getUserById = (id: string): User | undefined => {
-  try {
-    // First, try to get from active users cache if available
-    const currentUser = getCurrentUser();
-    if (currentUser.id === id) {
-      return currentUser;
-    }
-
-    // For now, return a fallback user structure
-    // This prevents the filter error by ensuring we always return something
-    return {
-      id: id,
-      name: `User ${id.slice(-4)}`, // Show last 4 characters of ID
-      email: `user-${id}@example.com`,
-      role: 'member',
-      avatarUrl: ''
-    };
-  } catch (error) {
-    console.error('Error in getUserById:', error);
-    return undefined;
-  }
-};
-
-// Async version for when you need to fetch from backend
-export const getUserByIdAsync = async (id: string): Promise<User | undefined> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
-      headers: getAuthHeaders()
-    });
-
-    if (response.ok) {
-      const user = await response.json();
-      // Map role to frontend format
-      return {
-        ...user,
-        role: mapRoleForFrontend(user.role)
-      };
-    } else {
-      // Fallback to synchronous version
-      return getUserById(id);
-    }
-  } catch (error) {
-    console.error('Error fetching user:', error);
-    // Fallback to synchronous version
-    return getUserById(id);
   }
 };
 
@@ -238,6 +313,7 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
       // Map role to frontend format
       return {
         ...user,
+        id: user.id || user._id,
         role: mapRoleForFrontend(user.role)
       };
     } else {
@@ -293,6 +369,7 @@ export const authenticate = async (email: string, password: string): Promise<Use
       // Map role to frontend format before storing
       const userWithMappedRole = {
         ...data.user,
+        id: data.user.id || data.user._id,
         role: mapRoleForFrontend(data.user.role)
       };
       
@@ -316,6 +393,7 @@ export const authenticate = async (email: string, password: string): Promise<Use
 export const logout = (): void => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('cachedUsers'); // Clear user cache
   toast.info('Logged out successfully');
   window.location.href = '/login';
 };
@@ -335,6 +413,7 @@ export const getPendingUsers = async (): Promise<User[]> => {
       // Map roles to frontend format
       const mappedUsers = data.map((user: User) => ({
         ...user,
+        id: user.id || user._id,
         role: mapRoleForFrontend(user.role)
       }));
       
@@ -384,6 +463,9 @@ export const approveUser = async (
     if (response.ok) {
       const data = await response.json();
       console.log('User approved successfully:', data);
+      
+      // Clear cache to force refresh
+      localStorage.removeItem('cachedUsers');
       
       // Show success message with hierarchy info
       let successMessage = `User approved as ${role.replace('_', ' ')}`;
@@ -459,6 +541,7 @@ export const getUsersByRole = async (role: string): Promise<User[]> => {
         // Map roles back to frontend format
         const mappedUsers = users.map((user: User) => ({
           ...user,
+          id: user.id || user._id,
           role: mapRoleForFrontend(user.role)
         }));
         console.log(`Found ${mappedUsers.length} users with role ${role}:`, mappedUsers);
@@ -782,6 +865,7 @@ export const getTeamMembers = async (userId: string): Promise<User[]> => {
       // Map roles to frontend format
       return users.map((user: User) => ({
         ...user,
+        id: user.id || user._id,
         role: mapRoleForFrontend(user.role)
       }));
     } else {
@@ -812,8 +896,12 @@ export const addTeamMember = async (member: Omit<User, 'id'>): Promise<User> => 
       // Map role back to frontend format
       const mappedMember = {
         ...newMember,
+        id: newMember.id || newMember._id,
         role: mapRoleForFrontend(newMember.role)
       };
+      
+      // Clear cache to force refresh
+      localStorage.removeItem('cachedUsers');
       
       toast.success('Team member added successfully');
       return mappedMember;
@@ -866,6 +954,7 @@ export const registerUser = async (name: string, email: string, password: string
       if (data.user && data.user.role) {
         userWithMappedRole = {
           ...data.user,
+          id: data.user.id || data.user._id,
           role: mapRoleForFrontend(data.user.role)
         };
       }
