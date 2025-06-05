@@ -407,4 +407,39 @@ export default function Dashboard() {
 
       {/* In Progress Tasks Dialog */}
       <DialogComponent open={inProgressTasksDialogOpen} onOpenChange={setInProgressTasksDialogOpen}>
-        <DialogContentComponent className
+        <DialogContentComponent className="sm:max-w-[600px]">
+          <DialogHeaderComponent>
+            <DialogTitleComponent className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              In Progress Tasks ({inProgressTasks.length})
+            </DialogTitleComponent>
+          </DialogHeaderComponent>
+          <TaskDetailsList 
+            tasks={inProgressTasks} 
+            onEdit={handleEditTask} 
+            emptyMessage="No in-progress tasks found."
+            refetch={handleTaskSuccess}
+          />
+        </DialogContentComponent>
+      </DialogComponent>
+
+      {/* Overdue Tasks Dialog */}
+      <DialogComponent open={overdueTasksDialogOpen} onOpenChange={setOverdueTasksDialogOpen}>
+        <DialogContentComponent className="sm:max-w-[600px]">
+          <DialogHeaderComponent>
+            <DialogTitleComponent className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              Overdue Tasks ({overdueTasks.length})
+            </DialogTitleComponent>
+          </DialogHeaderComponent>
+          <TaskDetailsList 
+            tasks={overdueTasks} 
+            onEdit={handleEditTask} 
+            emptyMessage="No overdue tasks found."
+            refetch={handleTaskSuccess}
+          />
+        </DialogContentComponent>
+      </DialogComponent>
+    </div>
+  );
+}
