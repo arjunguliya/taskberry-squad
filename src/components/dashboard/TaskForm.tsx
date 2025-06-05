@@ -7,17 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2 } from "lucide-react";
-import { Task, TaskStatus, User } from "@/lib/types";
-import { 
-  addTask, 
-  updateTask, 
-  getCurrentUser, 
-  getAssignableUsers, 
-  getReassignableUsers,
-  canEditTask,
-  canReassignTask 
-} from "@/lib/dataService.ts";
+import { CalendarIcon } from "lucide-react";
+import { Task, TaskStatus, User, UserRole } from "@/lib/types";
+import { addTask, updateTask, getCurrentUser, getAssignableUsers } from "@/lib/dataService.ts";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -38,18 +30,12 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
   const [assignableUsers, setAssignableUsers] = useState<User[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [canEdit, setCanEdit] = useState(true);
-  const [canReassign, setCanReassign] = useState(true);
-  const [formError, setFormError] = useState<string>("");
   
   const currentUser = getCurrentUser();
   const isEditing = !!task;
   
-  // Load form data when dialog opens
   useEffect(() => {
     if (open) {
-      setFormError(""); // Clear any previous errors
-      
       if (task) {
         // Edit mode - populate form with task data
         setTitle(task.title);
@@ -66,92 +52,34 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         setStatus(TaskStatus.NOT_STARTED);
       }
       
-      // Load users and permissions
-      loadUsersAndPermissions();
+      // Load assignable users based on current user role
+      loadAssignableUsers();
     }
-  }, [open, task, currentUser.id]);
+  }, [open, task]);
 
-  const loadUsersAndPermissions = async () => {
+  const loadAssignableUsers = async () => {
     try {
       setLoadingUsers(true);
-      setFormError("");
+      console.log('TaskForm: Loading assignable users...');
       
-      // Check permissions for editing (only if editing an existing task)
-      if (task) {
-        const editPermission = await canEditTask(task.id, currentUser.id);
-        const reassignPermission = await canReassignTask(task.id, currentUser.id);
-        setCanEdit(editPermission);
-        setCanReassign(reassignPermission);
-        
-        if (!editPermission) {
-          setFormError("You don't have permission to edit this task");
-          setLoadingUsers(false);
-          return;
-        }
-      } else {
-        // For new tasks, user can always edit and reassign
-        setCanEdit(true);
-        setCanReassign(true);
-      }
-      
-      // Load assignable users
-      let users: User[] = [];
-      console.log('Loading assignable users...');
-      
-      try {
-        if (isEditing && task && canReassign) {
-          // For editing, get reassignable users if user can reassign
-          users = await getReassignableUsers(task.id, currentUser.id);
-        } else if (isEditing && task && !canReassign) {
-          // If can't reassign, just show current assignee
-          // We'll need to fetch the current assignee's details
-          users = []; // Will be populated below
-        } else {
-          // For new tasks, get assignable users
-          users = await getAssignableUsers(currentUser.id);
-        }
-        
-        console.log('Loaded assignable users:', users);
-      } catch (error) {
-        console.error('Error loading assignable users:', error);
-        // Create fallback user list
-        users = [{
-          id: currentUser.id,
-          name: currentUser.name,
-          email: currentUser.email,
-          role: currentUser.role,
-          avatarUrl: currentUser.avatarUrl
-        }];
-        console.log('Using fallback user list:', users);
-      }
+      const users = await getAssignableUsers(currentUser.id);
+      console.log('TaskForm: Assignable users loaded:', users.length);
       
       setAssignableUsers(users);
       
-      // Auto-select assignee based on context
-      if (!isEditing && users.length > 0) {
-        // For new tasks, auto-select based on role
-        if (currentUser.role === 'member') {
-          // Members can only assign to themselves
-          const selfUser = users.find(u => u.id === currentUser.id);
-          if (selfUser) {
-            setAssigneeId(selfUser.id);
-          }
-        } else if (users.length === 1) {
-          // If only one option, auto-select it
-          setAssigneeId(users[0].id);
+      // If creating a new task and user can assign to themselves, pre-select themselves
+      if (!task && users.length > 0) {
+        const selfUser = users.find(user => user.id === currentUser.id);
+        if (selfUser) {
+          setAssigneeId(selfUser.id);
         }
       }
       
-      // If editing and can't reassign, ensure current assignee is selected
-      if (isEditing && task && !canReassign) {
-        setAssigneeId(task.assigneeId);
-      }
-      
     } catch (error) {
-      console.error('Error loading users and permissions:', error);
-      setFormError('Failed to load assignment options. Please try again.');
+      console.error('TaskForm: Error loading assignable users:', error);
+      toast.error('Failed to load assignable users');
       
-      // Emergency fallback - at least show current user
+      // Fallback: at minimum, user should be able to assign to themselves
       setAssignableUsers([{
         id: currentUser.id,
         name: currentUser.name,
@@ -159,10 +87,7 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         role: currentUser.role,
         avatarUrl: currentUser.avatarUrl
       }]);
-      
-      if (!isEditing) {
-        setAssigneeId(currentUser.id);
-      }
+      setAssigneeId(currentUser.id);
     } finally {
       setLoadingUsers(false);
     }
@@ -170,27 +95,8 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError("");
-    
-    // Validation
-    if (!title.trim()) {
-      setFormError("Task title is required");
-      return;
-    }
-    
-    if (!assigneeId) {
-      setFormError("Please select an assignee");
-      return;
-    }
-    
-    if (!targetDate) {
-      setFormError("Please select a target date");
-      return;
-    }
-    
-    // Check if target date is in the past (only for new tasks)
-    if (!isEditing && targetDate < new Date()) {
-      setFormError("Target date cannot be in the past");
+    if (!title || !assigneeId || !targetDate) {
+      toast.error("Please fill out all required fields");
       return;
     }
     
@@ -198,198 +104,133 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
     
     try {
       if (isEditing && task) {
-        // Check permissions before updating
-        if (!canEdit) {
-          setFormError("You don't have permission to edit this task");
-          return;
-        }
-        
-        if (assigneeId !== task.assigneeId && !canReassign) {
-          setFormError("You don't have permission to reassign this task");
-          return;
-        }
-        
-        const updatedTask: Task = {
+        console.log('TaskForm: Updating task:', task.id);
+        await updateTask({
           ...task,
-          title: title.trim(),
-          description: description.trim(),
+          title,
+          description,
           assigneeId,
           targetDate: targetDate.toISOString(),
           status
-        };
-        
-        await updateTask(updatedTask);
+        });
+        toast.success('Task updated successfully');
       } else {
-        const newTaskData = {
-          title: title.trim(),
-          description: description.trim(),
+        console.log('TaskForm: Creating new task');
+        await addTask({
+          title,
+          description,
           assigneeId,
           assignedDate: new Date().toISOString(),
           targetDate: targetDate.toISOString(),
           status
-        };
-        
-        await addTask(newTaskData);
+        });
+        toast.success('Task created successfully');
       }
       
       if (onSuccess) onSuccess();
       onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error saving task:", error);
-      setFormError(error.message || "Failed to save task. Please try again.");
+    } catch (error) {
+      console.error("TaskForm: Error saving task:", error);
+      toast.error("Failed to save task");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const formatRole = (role: string): string => {
-    return role
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  const getRoleDisplayName = (role: string): string => {
+    const roleMap: { [key: string]: string } = {
+      'super_admin': 'Super Admin',
+      'manager': 'Manager',
+      'supervisor': 'Supervisor',
+      'member': 'Member'
+    };
+    return roleMap[role] || role;
   };
 
-  const getFormDescription = () => {
+  const getFormDescription = (): string => {
     if (isEditing) {
-      if (!canEdit) {
-        return "You can view this task but cannot edit it.";
-      }
-      if (!canReassign) {
-        return "You can edit task details but cannot reassign it to another user.";
-      }
-      return "Edit the task details below.";
+      return "Make changes to the existing task.";
     }
 
-    // Create mode descriptions
     switch (currentUser.role) {
       case 'super_admin':
-        return "As a super admin, you can assign tasks to anyone in the system.";
+        return "As a Super Admin, you can assign tasks to anyone in the organization.";
       case 'manager':
-        return "As a manager, you can assign tasks to supervisors and members in your team.";
+        return "As a Manager, you can assign tasks to supervisors and team members.";
       case 'supervisor':
-        return "As a supervisor, you can assign tasks to members in your team or yourself.";
+        return "As a Supervisor, you can assign tasks to team members and yourself.";
       case 'member':
-        return "As a member, you can create tasks for yourself.";
+        return "As a Team Member, you can create tasks for yourself.";
       default:
         return "Create a new task.";
-    }
-  };
-
-  const getStatusColor = (status: TaskStatus) => {
-    switch (status) {
-      case TaskStatus.COMPLETED: return 'text-green-600';
-      case TaskStatus.IN_PROGRESS: return 'text-blue-600';
-      case TaskStatus.NOT_STARTED: return 'text-gray-600';
-      default: return 'text-gray-600';
     }
   };
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {isEditing ? "Edit Task" : "Create New Task"}
-            {isEditing && task && (
-              <span className={cn("text-sm px-2 py-1 rounded-full", getStatusColor(task.status))}>
-                {task.status}
-              </span>
-            )}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Task" : "Create New Task"}</DialogTitle>
           <DialogDescription>
             {getFormDescription()}
           </DialogDescription>
         </DialogHeader>
         
-        {formError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {formError}
-          </div>
-        )}
-        
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-          {/* Task Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Task Title*</Label>
             <Input 
               id="title" 
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
-              disabled={!canEdit || isSubmitting}
-              placeholder="Enter task title"
               required
+              placeholder="Enter a descriptive title for the task"
             />
           </div>
           
-          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea 
               id="description" 
               value={description} 
               onChange={(e) => setDescription(e.target.value)}
-              disabled={!canEdit || isSubmitting}
-              placeholder="Enter task description (optional)"
-              rows={3} 
+              rows={3}
+              placeholder="Describe what needs to be done..."
             />
           </div>
           
-          {/* Assigned To */}
           <div className="space-y-2">
-            <Label htmlFor="assignee">
-              Assigned To* 
-              {isEditing && !canReassign && (
-                <span className="text-sm text-muted-foreground">(Cannot be changed)</span>
-              )}
-            </Label>
-            <Select 
-              value={assigneeId} 
-              onValueChange={setAssigneeId}
-              disabled={loadingUsers || (isEditing && !canReassign) || isSubmitting}
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={
-                  loadingUsers 
-                    ? "Loading users..." 
-                    : assignableUsers.length === 0 
-                      ? "No users available" 
-                      : "Select assignee"
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                {assignableUsers.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{user.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        ({formatRole(user.role)})
-                      </span>
-                      {user.id === currentUser.id && (
-                        <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">You</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {loadingUsers && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Loading available users...
+            <Label htmlFor="assignee">Assigned To*</Label>
+            {loadingUsers ? (
+              <div className="flex items-center justify-center p-3 border rounded-md">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                <span className="text-sm text-muted-foreground">Loading users...</span>
               </div>
+            ) : (
+              <Select 
+                value={assigneeId} 
+                onValueChange={setAssigneeId}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {assignableUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({getRoleDisplayName(user.role)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-            {!loadingUsers && assignableUsers.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                {isEditing && !canReassign 
-                  ? "You cannot reassign this task" 
-                  : "No users available for assignment"
-                }
+            {assignableUsers.length === 0 && !loadingUsers && (
+              <p className="text-xs text-amber-600 mt-1">
+                ⚠️ No users available for assignment. Check your permissions or contact an administrator.
               </p>
             )}
           </div>
           
-          {/* Target Date */}
           <div className="space-y-2">
             <Label htmlFor="targetDate">Target Date*</Label>
             <Popover>
@@ -400,7 +241,6 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
                     "w-full justify-start text-left font-normal",
                     !targetDate && "text-muted-foreground"
                   )}
-                  disabled={!canEdit || isSubmitting}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {targetDate ? format(targetDate, "PPP") : "Select a date"}
@@ -412,42 +252,29 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
                   selected={targetDate}
                   onSelect={setTargetDate}
                   initialFocus
-                  disabled={(date) => 
-                    !isEditing && date < new Date(new Date().setHours(0, 0, 0, 0))
-                  }
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                 />
               </PopoverContent>
             </Popover>
           </div>
           
-          {/* Status - Only for editing */}
           {isEditing && (
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select 
-                value={status} 
-                onValueChange={(value) => setStatus(value as TaskStatus)}
-                disabled={!canEdit || isSubmitting}
-              >
+              <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={TaskStatus.NOT_STARTED}>
-                    <span className={getStatusColor(TaskStatus.NOT_STARTED)}>Not Started</span>
-                  </SelectItem>
-                  <SelectItem value={TaskStatus.IN_PROGRESS}>
-                    <span className={getStatusColor(TaskStatus.IN_PROGRESS)}>In Progress</span>
-                  </SelectItem>
-                  <SelectItem value={TaskStatus.COMPLETED}>
-                    <span className={getStatusColor(TaskStatus.COMPLETED)}>Completed</span>
-                  </SelectItem>
+                  <SelectItem value={TaskStatus.NOT_STARTED}>Not Started</SelectItem>
+                  <SelectItem value={TaskStatus.IN_PROGRESS}>In Progress</SelectItem>
+                  <SelectItem value={TaskStatus.COMPLETED}>Completed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
           
-          <DialogFooter className="flex gap-2 pt-4">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
@@ -458,18 +285,9 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
             </Button>
             <Button 
               type="submit" 
-              disabled={
-                isSubmitting || 
-                !canEdit || 
-                loadingUsers || 
-                (assignableUsers.length === 0 && !isEditing)
-              }
+              disabled={isSubmitting || loadingUsers || assignableUsers.length === 0}
             >
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting 
-                ? (isEditing ? "Updating..." : "Creating...") 
-                : (isEditing ? "Update Task" : "Create Task")
-              }
+              {isSubmitting ? "Saving..." : isEditing ? "Update Task" : "Create Task"}
             </Button>
           </DialogFooter>
         </form>
