@@ -7,7 +7,7 @@ import { Task, TaskStatus, User } from "@/lib/types";
 import { formatDate, getInitials, getRelativeTime } from "@/lib/utils";
 import { CalendarIcon, CheckCircle, Clock, Edit, User as UserIcon } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getCurrentUser, updateTaskStatus } from "@/lib/dataService.ts";
+import { getUserById, getUserByIdAsync, updateTaskStatus } from "@/lib/dataService.ts";
 
 interface TaskCardProps {
   task: Task;
@@ -20,120 +20,33 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
   const [assignee, setAssignee] = useState<User | undefined>(undefined);
   const [loadingAssignee, setLoadingAssignee] = useState(true);
 
-  // Load assignee information with improved logic and better fallback
+  // Load assignee information
   useEffect(() => {
     const loadAssignee = async () => {
       try {
         setLoadingAssignee(true);
-        console.log('TaskCard: Loading assignee for task:', task.id, 'assigneeId:', task.assigneeId);
         
-        let user: User | undefined = undefined;
-        const currentUser = getCurrentUser();
+        // First try the synchronous version (might have cached data)
+        let user = getUserById(task.assigneeId);
         
-        // Strategy 1: Check if assignee is current user
-        if (currentUser && (currentUser.id === task.assigneeId || currentUser._id === task.assigneeId)) {
-          console.log('TaskCard: Assignee is current user');
-          user = currentUser;
-        }
-        
-        // Strategy 2: Try to fetch from backend API directly
-        if (!user) {
-          try {
-            console.log('TaskCard: Fetching user from API...');
-            const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://taskberry-backend.onrender.com';
-            const token = localStorage.getItem('token');
-            
-            const response = await fetch(`${API_BASE_URL}/api/users/${task.assigneeId}`, {
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              }
-            });
-            
-            if (response.ok) {
-              const userData = await response.json();
-              console.log('TaskCard: User data from API:', userData);
-              
-              // Handle both MongoDB _id and regular id
-              user = {
-                id: userData.id || userData._id,
-                name: userData.name,
-                email: userData.email,
-                role: userData.role,
-                avatarUrl: userData.avatarUrl,
-                supervisorId: userData.supervisorId,
-                managerId: userData.managerId
-              };
-              console.log('TaskCard: Processed user:', user);
-            } else {
-              console.log('TaskCard: API response not ok:', response.status);
-            }
-          } catch (error) {
-            console.log('TaskCard: API fetch failed:', error);
+        // If we got a generic fallback user, try to fetch the real data
+        if (user && user.name.startsWith('User ')) {
+          console.log('TaskCard: Got fallback user, fetching real data for:', task.assigneeId);
+          const realUser = await getUserByIdAsync(task.assigneeId);
+          if (realUser && !realUser.name.startsWith('User ')) {
+            user = realUser;
           }
         }
         
-        // Strategy 3: Try to get from active users list
-        if (!user) {
-          try {
-            console.log('TaskCard: Trying to get from active users...');
-            const { getActiveUsers } = await import('@/lib/dataService');
-            const activeUsers = await getActiveUsers();
-            console.log('TaskCard: Active users count:', activeUsers.length);
-            console.log('TaskCard: Looking for user with ID:', task.assigneeId);
-            
-            user = activeUsers.find(u => {
-              const matches = u.id === task.assigneeId || u._id === task.assigneeId;
-              if (matches) {
-                console.log('TaskCard: Found matching user:', u.name);
-              }
-              return matches;
-            });
-            
-            if (user) {
-              console.log('TaskCard: Found user in active users:', user.name);
-            } else {
-              console.log('TaskCard: User not found in active users. Available users:', 
-                activeUsers.map(u => ({ id: u.id, _id: u._id, name: u.name })));
-            }
-          } catch (error) {
-            console.log('TaskCard: Failed to get active users:', error);
-          }
-        }
-        
-        // Strategy 4: Create a meaningful fallback based on assigneeId
-        if (!user) {
-          console.log('TaskCard: Creating fallback user for assigneeId:', task.assigneeId);
-          
-          // Try to extract meaningful info from the assigneeId
-          let fallbackName = 'Unknown User';
-          
-          // If assigneeId looks like a MongoDB ObjectId, use last 4 characters
-          if (task.assigneeId && task.assigneeId.length === 24) {
-            fallbackName = `User-${task.assigneeId.slice(-4)}`;
-          } else if (task.assigneeId && task.assigneeId.length > 4) {
-            fallbackName = `User-${task.assigneeId.slice(-4)}`;
-          }
-          
-          user = {
-            id: task.assigneeId,
-            name: fallbackName,
-            email: `${task.assigneeId}@example.com`,
-            role: 'member',
-            avatarUrl: ''
-          };
-        }
-        
-        console.log('TaskCard: Final assignee:', user?.name);
+        console.log('TaskCard: Assignee loaded:', user);
         setAssignee(user);
-        
       } catch (error) {
         console.error('TaskCard: Error loading assignee:', error);
-        // Final fallback
+        // Use fallback
         setAssignee({
-          id: task.assigneeId || 'unknown',
-          name: 'Unknown User',
-          email: 'unknown@example.com',
+          id: task.assigneeId,
+          name: `User ${task.assigneeId.slice(-4)}`,
+          email: `user-${task.assigneeId}@example.com`,
           role: 'member',
           avatarUrl: ''
         });
@@ -144,16 +57,6 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
 
     if (task.assigneeId) {
       loadAssignee();
-    } else {
-      console.log('TaskCard: No assigneeId found for task');
-      setAssignee({
-        id: 'unassigned',
-        name: 'Unassigned',
-        email: 'unassigned@example.com',
-        role: 'member',
-        avatarUrl: ''
-      });
-      setLoadingAssignee(false);
     }
   }, [task.assigneeId]);
 
@@ -188,27 +91,26 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
 
   return (
     <Card 
-      className="overflow-hidden transition-all duration-300 hover:shadow-md border 
+      className="overflow-hidden transition-all duration-300 hover:shadow-card-hover border 
                  hover:border-primary/20 h-full flex flex-col animate-fade-in"
     >
-      {/* Header with better spacing */}
-      <CardHeader className="pb-3 pt-4">
-        <div className="flex justify-between items-start mb-3">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
           <StatusBadge task={task} />
           <div className="flex items-center gap-2">
             {loadingAssignee ? (
-              <div className="h-7 w-7 rounded-full bg-muted animate-pulse"></div>
+              <div className="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
             ) : (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
-                      <Avatar className="h-7 w-7">
+                      <Avatar className="h-8 w-8">
                         {assignee?.avatarUrl ? (
                           <AvatarImage src={assignee.avatarUrl} alt={assignee.name} />
                         ) : (
-                          <AvatarFallback className="text-xs">
-                            {assignee ? getInitials(assignee.name) : <UserIcon className="h-3 w-3" />}
+                          <AvatarFallback>
+                            {assignee ? getInitials(assignee.name) : <UserIcon className="h-4 w-4" />}
                           </AvatarFallback>
                         )}
                       </Avatar>
@@ -222,35 +124,29 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
             )}
           </div>
         </div>
-        <h3 className="font-medium text-base leading-tight line-clamp-2 text-left">{task.title}</h3>
+        <h3 className="font-medium text-lg mt-2 line-clamp-1 text-left">{task.title}</h3>
       </CardHeader>
       
-      {/* Content with proper spacing */}
-      <CardContent className="pb-3 flex-grow">
-        {/* Description */}
-        {task.description && (
-          <p className="text-muted-foreground text-sm line-clamp-2 text-left mb-3">
-            {task.description}
-          </p>
-        )}
+      <CardContent className="pb-4 flex-grow">
+        <p className="text-muted-foreground text-sm line-clamp-2 text-left mb-3">
+          {task.description || "No description provided"}
+        </p>
         
         {/* Assignee Information */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <UserIcon className="h-3 w-3 flex-shrink-0" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+          <UserIcon className="h-3 w-3" />
           {loadingAssignee ? (
             <div className="h-4 w-20 bg-muted rounded animate-pulse"></div>
           ) : (
-            <span className="truncate">
+            <span>
               {assignee?.name || 'Unknown User'}
             </span>
           )}
         </div>
       </CardContent>
       
-      {/* Footer with proper spacing */}
-      <CardFooter className="pt-3 pb-4 border-t">
-        {/* Dates row */}
-        <div className="w-full flex justify-between items-center text-xs text-muted-foreground mb-3">
+      <CardFooter className="pt-2 border-t flex-col items-start gap-2">
+        <div className="w-full flex justify-between items-center text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" />
             <span>Assigned: {formatDate(task.assignedDate)}</span>
@@ -261,17 +157,16 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
           </div>
         </div>
         
-        {/* Action Buttons row */}
-        <div className="w-full flex justify-between items-center">
+        <div className="w-full flex justify-between items-center mt-2">
           <div className="text-xs text-muted-foreground">
             {task.status === TaskStatus.COMPLETED && (
               <span className="text-green-600 font-medium">✓ Completed</span>
             )}
             {task.status === TaskStatus.IN_PROGRESS && (
-              <span className="text-blue-600 font-medium">⏳ Active</span>
+              <span className="text-blue-600 font-medium">⏳ In Progress</span>
             )}
             {task.status === TaskStatus.NOT_STARTED && (
-              <span className="text-gray-600 font-medium">⭕ Pending</span>
+              <span className="text-gray-600 font-medium">⭕ Not Started</span>
             )}
           </div>
           
