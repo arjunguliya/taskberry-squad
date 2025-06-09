@@ -198,7 +198,7 @@ export function TaskCard({ task, onEdit, refetch }: TaskCardProps) {
         </div>
       </CardContent>
       
-      <CardFooter className="pt-2 pb-1 border-t flex-col items-start gap-2">
+      <CardFooter className="pt-4 pb-2 border-t flex-col items-start gap-2">
         <div className="w-full flex justify-between items-center text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <CalendarIcon className="h-3 w-3" />
