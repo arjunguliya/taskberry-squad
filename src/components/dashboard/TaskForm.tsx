@@ -39,6 +39,7 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
   const [remarks, setRemarks] = useState("");
   const [assignableUsers, setAssignableUsers] = useState<User[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [permissions, setPermissions] = useState<FieldPermissions>({
     canEditTitle: false,
     canEditDescription: false,
@@ -65,25 +66,25 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
       };
     }
 
-    const isCreator = task.createdBy?.id === currentUser.id;
+    const isCreator = task.createdBy === currentUser.id;
     const isAssignee = task.assigneeId === currentUser.id;
-    const isSuperAdmin = currentUser.role === UserRole.SUPER_ADMIN;
-    const isManager = currentUser.role === UserRole.MANAGER;
-    const isSupervisor = currentUser.role === UserRole.SUPERVISOR;
+    const isSuperAdmin = currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === 'super_admin';
+    const isManager = currentUser.role === UserRole.MANAGER || currentUser.role === 'manager';
+    const isSupervisor = currentUser.role === UserRole.SUPERVISOR || currentUser.role === 'supervisor';
 
     // For editing existing tasks
     return {
-      // Title: Only creator can edit
+      // Title: Only creator or super admin can edit
       canEditTitle: isCreator || isSuperAdmin,
       
-      // Description: Only creator can edit
+      // Description: Only creator or super admin can edit
       canEditDescription: isCreator || isSuperAdmin,
       
       // Assignee: Based on role hierarchy
       canEditAssignee: (() => {
         if (isSuperAdmin) return true;
         if (isCreator) return true;
-        if (currentUser.role === UserRole.MEMBER) return false;
+        if (currentUser.role === UserRole.MEMBER || currentUser.role === 'member') return false;
         
         // Supervisor can edit if task is assigned to them or their team members
         if (isSupervisor) {
@@ -98,7 +99,7 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         return false;
       })(),
       
-      // Target Date: Only creator can edit
+      // Target Date: Only creator or super admin can edit
       canEditTargetDate: isCreator || isSuperAdmin,
       
       // Status: Assignee or their supervisor/manager can edit
@@ -107,7 +108,6 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         if (isAssignee) return true;
         
         // Check if current user is supervisor/manager of the assignee
-        // This would require getting assignee user details
         // For now, we'll allow supervisors and managers to edit status
         if (isSupervisor || isManager) return true;
         
@@ -125,6 +125,30 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         return false;
       })()
     };
+  };
+
+  // Load assignable users
+  const loadAssignableUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      console.log('Loading assignable users...');
+      const users = await getAssignableUsers(currentUser.id);
+      
+      // Ensure we always have an array
+      if (Array.isArray(users)) {
+        console.log('Assignable users loaded:', users.length);
+        setAssignableUsers(users);
+      } else {
+        console.warn('getAssignableUsers did not return an array:', users);
+        setAssignableUsers([]);
+      }
+    } catch (error) {
+      console.error('Error loading assignable users:', error);
+      setAssignableUsers([]);
+      toast.error('Failed to load assignable users');
+    } finally {
+      setLoadingUsers(false);
+    }
   };
   
   useEffect(() => {
@@ -154,12 +178,12 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         setPermissions(calculatePermissions(currentUser));
       }
       
-      // Load assignable users based on current user role
-      setAssignableUsers(getAssignableUsers(currentUser.id));
+      // Load assignable users
+      loadAssignableUsers();
     }
-  }, [open, task, currentUser]);
+  }, [open, task, currentUser.id]);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !assigneeId || !targetDate) {
       toast.error("Please fill out all required fields");
@@ -180,7 +204,7 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
 
       if (isEditing && task) {
         // For editing, only include fields that user can edit
-        const updateData: any = {};
+        const updateData: any = { ...task };
         
         if (permissions.canEditTitle) updateData.title = title;
         if (permissions.canEditDescription) updateData.description = description;
@@ -189,13 +213,11 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
         if (permissions.canEditStatus) updateData.status = status;
         if (permissions.canEditRemarks) updateData.remarks = remarks;
         
-        updateTask({
-          ...task,
-          ...updateData,
-          lastUpdated: new Date().toISOString()
-        });
+        updateData.lastUpdated = new Date().toISOString();
+        
+        await updateTask(updateData);
       } else {
-        addTask({
+        await addTask({
           ...taskData,
           assignedDate: new Date().toISOString()
         });
@@ -237,7 +259,7 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
           <DialogDescription>
             {isEditing 
               ? "Make changes to the existing task." 
-              : `As a ${currentUser.role}, you can assign tasks to team members.`
+              : `As a ${currentUser.role.replace('_', ' ')}, you can assign tasks to team members.`
             }
           </DialogDescription>
         </DialogHeader>
@@ -305,27 +327,40 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
               locked={isEditing && !permissions.canEditAssignee}
               reason="Cannot reassign this task"
             >
-              <Select 
-                value={assigneeId} 
-                onValueChange={setAssigneeId}
-                disabled={isEditing && !permissions.canEditAssignee}
-                required
-              >
-                <SelectTrigger className={cn(
-                  isEditing && !permissions.canEditAssignee && "bg-muted cursor-not-allowed"
-                )}>
-                  <SelectValue placeholder="Select assignee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {assignableUsers.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.role})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingUsers ? (
+                <div className="flex items-center justify-center py-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-sm text-muted-foreground">Loading users...</span>
+                </div>
+              ) : (
+                <Select 
+                  value={assigneeId} 
+                  onValueChange={setAssigneeId}
+                  disabled={isEditing && !permissions.canEditAssignee}
+                  required
+                >
+                  <SelectTrigger className={cn(
+                    isEditing && !permissions.canEditAssignee && "bg-muted cursor-not-allowed"
+                  )}>
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.isArray(assignableUsers) && assignableUsers.length > 0 ? (
+                      assignableUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.role})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-users" disabled>
+                        No users available for assignment
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
             </LockedField>
-            {assignableUsers.length === 0 && (
+            {!loadingUsers && (!Array.isArray(assignableUsers) || assignableUsers.length === 0) && (
               <p className="text-xs text-muted-foreground mt-1">
                 No users available for assignment
               </p>
@@ -439,7 +474,10 @@ export function TaskForm({ open, onOpenChange, task, onSuccess }: TaskFormProps)
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || loadingUsers || (!Array.isArray(assignableUsers) || assignableUsers.length === 0)}
+            >
               {isSubmitting ? "Saving..." : isEditing ? "Update Task" : "Create Task"}
             </Button>
           </DialogFooter>
