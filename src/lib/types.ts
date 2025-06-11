@@ -48,6 +48,7 @@ export interface Task {
   status: TaskStatus;
   priority?: TaskPriority | string; // Task priority
   tags?: string[]; // Array of tags for categorization
+  remarks?: string; // NEW: Remarks field
   lastUpdated: string;
   completedDate?: string; // Optional field for when a task is completed
   createdAt?: string;
@@ -156,6 +157,17 @@ export interface UserPermissions {
   canViewReports: boolean;
   canDeleteTasks: boolean;
   canManageSettings: boolean;
+}
+
+export interface TaskFieldPermissions {
+  canEditTitle: boolean;
+  canEditDescription: boolean;
+  canEditAssignee: boolean;
+  canEditTargetDate: boolean;
+  canEditStatus: boolean;
+  canEditRemarks: boolean;
+  canEditPriority: boolean;
+  canEditTags: boolean;
 }
 
 // Form interfaces
