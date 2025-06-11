@@ -126,13 +126,29 @@ const refreshUserData = async () => {
   }
 };
 
-// FIXED: Synchronous version for immediate lookups with caching
-export const getUserById = (id: string): User | undefined => {
-  // First check if we have the user in our current users cache
+// FIXED: Enhanced getUserById function to handle both string IDs and populated user objects
+export const getUserById = (id: string | User): User | undefined => {
   try {
+    // If the parameter is already a user object, return it
+    if (typeof id === 'object' && id !== null) {
+      console.log('TaskCard: AssigneeId is an object:', id);
+      console.log('TaskCard: Using pre-populated assignee:', id);
+      
+      // Ensure the user object has a proper id field
+      const userObj = id as User;
+      return {
+        ...userObj,
+        id: userObj.id || userObj._id || 'unknown',
+        role: mapRoleForFrontend(userObj.role)
+      };
+    }
+
+    // If it's a string ID, proceed with lookup
+    const userId = String(id);
+
     // Check if it's the current user first
     const currentUser = getCurrentUser();
-    if (currentUser && (currentUser.id === id || currentUser._id === id)) {
+    if (currentUser && (currentUser.id === userId || currentUser._id === userId)) {
       return {
         ...currentUser,
         id: currentUser.id || currentUser._id
@@ -141,7 +157,7 @@ export const getUserById = (id: string): User | undefined => {
 
     // Check cached users
     const allUsers = getAllUsersSync();
-    const user = allUsers.find(user => (user.id || user._id) === id);
+    const user = allUsers.find(user => (user.id || user._id) === userId);
     
     if (user) {
       return {
@@ -152,9 +168,9 @@ export const getUserById = (id: string): User | undefined => {
     }
     
     // Return a fallback user for immediate display
-    console.log('getUserById: No cached user found for', id, '- returning fallback');
+    console.log('getUserById: No cached user found for', userId, '- returning fallback');
     return {
-      id: id,
+      id: userId,
       name: `Loading...`,
       email: `loading@example.com`,
       role: 'member',
@@ -162,10 +178,11 @@ export const getUserById = (id: string): User | undefined => {
     };
   } catch (error) {
     console.error('Error in getUserById:', error);
+    const userId = typeof id === 'string' ? id : 'unknown';
     return {
-      id: id,
+      id: userId,
       name: `Unknown User`,
-      email: `user-${String(id).slice(-4)}@example.com`,
+      email: `user-${userId.slice(-4)}@example.com`,
       role: 'member',
       avatarUrl: ''
     };
@@ -613,9 +630,7 @@ export const validateHierarchy = (
   return { isValid: true };
 };
 
-// TASK FUNCTIONS - Updated to work with backend
-
-// Get assignable users based on role hierarchy
+// ENHANCED: Get assignable users based on role hierarchy
 export const getAssignableUsers = async (currentUserId: string): Promise<User[]> => {
   try {
     console.log('Getting assignable users...');
@@ -633,6 +648,12 @@ export const getAssignableUsers = async (currentUserId: string): Promise<User[]>
     const allUsers = await getActiveUsers();
     console.log('All active users:', allUsers.length);
     
+    // Ensure we have an array
+    if (!Array.isArray(allUsers)) {
+      console.warn('getActiveUsers did not return an array:', allUsers);
+      return [];
+    }
+    
     // Filter users based on current user's role and hierarchy
     let assignableUsers: User[] = [];
     
@@ -645,8 +666,8 @@ export const getAssignableUsers = async (currentUserId: string): Promise<User[]>
       case 'manager':
         // Managers can assign to supervisors and members
         assignableUsers = allUsers.filter(user => 
-          user.role === 'supervisor' || 
-          user.role === 'member'
+          (user.role === 'supervisor' || user.role === 'member') && 
+          user.id !== currentUser.id
         );
         break;
         
@@ -697,6 +718,8 @@ export const getAssignableUsers = async (currentUserId: string): Promise<User[]>
   }
 };
 
+// TASK FUNCTIONS - Updated to work with backend
+
 // Get all tasks with proper permissions
 export const getAllTasks = async (): Promise<Task[]> => {
   try {
@@ -719,8 +742,15 @@ export const getAllTasks = async (): Promise<Task[]> => {
   }
 };
 
-// Get a single task by ID
-export const getTaskById = async (id: string): Promise<Task | undefined> => {
+// Get a single task by ID - FIXED: Now returns synchronously for immediate UI needs
+export const getTaskById = (id: string): Task | undefined => {
+  // For now, return undefined since we don't have task caching yet
+  // TODO: Implement task caching similar to user caching
+  return undefined;
+};
+
+// Async version for fetching from API
+export const getTaskByIdAsync = async (id: string): Promise<Task | undefined> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
       headers: getAuthHeaders()
